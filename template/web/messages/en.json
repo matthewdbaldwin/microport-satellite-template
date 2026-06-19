@@ -1,0 +1,19 @@
+{
+  "auth": {
+    "redirecting": "Redirecting to SalesPort…",
+    "signInWithSalesPort": "Sign in with SalesPort",
+    "noAccess": "You don't have access to __APP_NAME__. Ask your admin to grant access in SalesPort.",
+    "signInFailed": "Sign-in couldn't complete. Please try again, or contact your admin.",
+    "tryAgain": "Try again"
+  },
+  "home": {
+    "welcome": "Welcome, {name}."
+  },
+  "bug": {
+    "label": "Report a bug",
+    "titlePlaceholder": "What went wrong?",
+    "detailPlaceholder": "Steps, what you expected, what happened",
+    "send": "Send",
+    "thanks": "Thanks — your report was sent."
+  }
+}

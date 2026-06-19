@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Shared theme tokens (--fg/--bg/--surface/--border/--muted/--accent/...) and
+   the canonical themes live in microport-ui. Importing here keeps the satellite
+   on the shared palette; a LOCAL override silently wins, so keep local rules
+   minimal. feedback_local_theme_cascade_overrides_lib. */
+@import '@matthewdbaldwin/microport-ui/themes.css';
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* reduced-motion kill-switch MUST also cap iteration-count, or an infinite
+   animation becomes a strobe. feedback_reduced_motion_iteration_count_strobe. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center rounded-md px-4 font-medium;
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+}

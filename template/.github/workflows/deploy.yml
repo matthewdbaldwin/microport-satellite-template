@@ -1,0 +1,41 @@
+name: Deploy (prod)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # OIDC
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPO: __APP_SLUG__
+  ECS_CLUSTER: microport
+  ECS_SERVICE: __APP_SLUG__        # bare-named, not <app>-api
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}   # OIDC role (create in Phase 7)
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build & push API image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPO:$GITHUB_SHA"
+          docker build --build-arg NODE_AUTH_TOKEN="$NODE_AUTH_TOKEN" -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Roll the ECS service
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment >/dev/null
+          # Verify the new task picks up the image — feedback_ecs_gha_stale_image.
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"

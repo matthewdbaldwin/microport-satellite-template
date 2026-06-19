@@ -1,0 +1,19 @@
+{
+  "auth": {
+    "redirecting": "Redirection vers SalesPort…",
+    "signInWithSalesPort": "Se connecter avec SalesPort",
+    "noAccess": "Vous n'avez pas accès à __APP_NAME__. Demandez à votre administrateur de vous accorder l'accès dans SalesPort.",
+    "signInFailed": "La connexion n'a pas pu aboutir. Veuillez réessayer ou contacter votre administrateur.",
+    "tryAgain": "Réessayer"
+  },
+  "home": {
+    "welcome": "Bienvenue, {name}."
+  },
+  "bug": {
+    "label": "Signaler un bug",
+    "titlePlaceholder": "Que s'est-il passé ?",
+    "detailPlaceholder": "Étapes, résultat attendu, résultat obtenu",
+    "send": "Envoyer",
+    "thanks": "Merci — votre signalement a été envoyé."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "auth": {
+    "redirecting": "正在跳转到 SalesPort…",
+    "signInWithSalesPort": "使用 SalesPort 登录",
+    "noAccess": "您没有 __APP_NAME__ 的访问权限。请联系管理员在 SalesPort 中授予访问权限。",
+    "signInFailed": "登录未能完成。请重试，或联系您的管理员。",
+    "tryAgain": "重试"
+  },
+  "home": {
+    "welcome": "欢迎，{name}。"
+  },
+  "bug": {
+    "label": "报告问题",
+    "titlePlaceholder": "出了什么问题？",
+    "detailPlaceholder": "操作步骤、您的预期、实际情况",
+    "send": "发送",
+    "thanks": "谢谢 — 您的报告已发送。"
+  }
+}

@@ -1,0 +1,67 @@
+// __APP_NAME__ schema. Prisma 7 + driver adapter (adapter-pg).
+//
+// FK-table naming: this template emits @@map("__FK_TABLE__"). Pick "users"
+// (snake-plural, like sp/op) or "User" (default, like rp/cp/ep) at mint time —
+// all hand-written SQL must match. feedback_prisma_migration_fk_table_naming_per_repo.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  __PRIMARY_ROLE__
+  admin
+  superuser
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  name        String?
+  role        Role      @default(__PRIMARY_ROLE__)
+  active      Boolean   @default(true)
+  locale      String?   @default("en-US")
+  password    String?   // null for SSO-only users
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sessions    Session[]
+
+  @@map("__FK_TABLE__")
+}
+
+// Server-side session for jti-bearing tokens (B1 Phase 4b) — revocation + UI.
+model Session {
+  id         String    @id @default(cuid())
+  jti        String    @unique
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revokedAt  DateTime?
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Durable outbox for any outbound webhook from this platform (at-least-once).
+model WebhookOutbox {
+  id            String    @id @default(cuid())
+  channel       String    // e.g. "__APP_SLUG__->salesport"
+  eventType     String
+  payload       Json
+  correlationId String
+  attempts      Int       @default(0)
+  deliveredAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+
+  @@index([deliveredAt])
+  @@map("webhook_outbox")
+}

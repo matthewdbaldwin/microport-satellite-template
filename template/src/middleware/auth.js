@@ -1,0 +1,93 @@
+// __APP_NAME__ auth — an SSO spoke off the SalesPort hub.
+//
+// Hot path uses the shared, audited microport-auth verifier (RS256 + issuer +
+// audience pinned, jti session lookup/revocation, SsoClaims contract check).
+// Role resolution comes from the single microport-contracts map. The risky bits
+// (token verify, session revocation, claims schema) are NOT reimplemented here.
+// prd_canonical_auth_guard_lib, prd_microport_contracts, b1_phase4_satellite_cookie_migration.
+'use strict';
+const db = require('../lib/db');
+const logger = require('../lib/logger');
+const { createVerifier } = require('@matthewdbaldwin/microport-auth');
+const { SsoClaims, mapContractRole } = require('@matthewdbaldwin/microport-contracts');
+
+const COOKIE_NAME = '__APP_SLUG___token';
+const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
+
+const verify = createVerifier({
+  publicKeyBase64: process.env.SALESPORT_JWT_PUBLIC_KEY,
+  issuer:          process.env.SALESPORT_JWT_ISSUER,
+  audience:        AUDIENCE,
+  claimsSchema:    SsoClaims,
+  // bake clean, then 'enforce'. Break-glass: SSO_CLAIMS_MODE=warn (or off).
+  claimsMode:      process.env.SSO_CLAIMS_MODE || 'enforce',
+});
+
+async function requireAuth(req, res, next) {
+  // Post-Phase-4: cookie is the source. Never `if (!token) return` short-circuit
+  // that skips the cookie. feedback_phase4_cookie_vs_bearer_drift.
+  const token = (req.cookies && req.cookies[COOKIE_NAME]) || null;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  let payload;
+  try {
+    payload = verify(token); // throws on bad sig/issuer/audience; claims per claimsMode
+  } catch {
+    return res.status(401).json({ error: 'Token expired or invalid' });
+  }
+
+  try {
+    // jti-bearing tokens get a server-side session check (revocation).
+    if (payload.jti) {
+      const session = await db.session.findUnique({
+        where: { jti: payload.jti },
+        select: { id: true, revokedAt: true, expiresAt: true },
+      });
+      if (!session)             return res.status(401).json({ error: 'Session no longer valid. Please log in again.', code: 'SESSION_NOT_FOUND' });
+      if (session.revokedAt)    return res.status(401).json({ error: 'Session has been revoked. Please log in again.', code: 'SESSION_REVOKED' });
+      if (session.expiresAt < new Date()) return res.status(401).json({ error: 'Session expired. Please log in again.', code: 'SESSION_EXPIRED' });
+      req.sessionId = session.id;
+    }
+
+    // ONE role map for the whole platform; null = not granted → 403 (not a loop).
+    const role = mapContractRole('__APP_SLUG__', payload);
+    if (!role) {
+      return res.status(403).json({
+        error: 'You do not have access to __APP_NAME__. Ask your admin to grant access in SalesPort.',
+        code:  'NO___APP_SLUG___ROLE',
+      });
+    }
+
+    // JIT-provision against this platform's own User table.
+    const user = await db.user.upsert({
+      where:  { email: payload.email },
+      update: { name: payload.name || undefined, role },
+      create: { email: payload.email, name: payload.name || null, role },
+    });
+    if (!user.active) return res.status(401).json({ error: 'Account not found or disabled' });
+
+    req.user = {
+      id: user.id, email: user.email, name: user.name, role: user.role,
+      theme: payload.theme || null,
+      locale: payload.locale || user.locale || null,
+      appRoles: payload.app_roles || {},
+      isSuperuser: !!payload.is_superuser,
+    };
+    return next();
+  } catch (err) {
+    logger.error({ err }, '[auth] provisioning failed');
+    return res.status(500).json({ error: 'Login failed' });
+  }
+}
+
+// Role gate helper.
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    return next();
+  };
+}
+
+module.exports = { requireAuth, requireRole, COOKIE_NAME, AUDIENCE };

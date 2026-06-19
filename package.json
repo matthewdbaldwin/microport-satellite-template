@@ -1,0 +1,18 @@
+{
+  "name": "microport-satellite-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generator for minting a new MicroPort satellite from zero, pre-solving every platform footgun. Derived from the new-platform scaffolding runbook PRD.",
+  "bin": {
+    "mint-satellite": "./scaffold.mjs"
+  },
+  "scripts": {
+    "mint": "node scaffold.mjs",
+    "mint:dry": "node scaffold.mjs --dry",
+    "selftest": "node scaffold.mjs scaffold.config.example.json --dry"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

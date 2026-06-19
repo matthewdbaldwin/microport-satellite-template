@@ -1,0 +1,37 @@
+{
+  "name": "__APP_SLUG__-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "__APP_NAME__ API — a MicroPort satellite.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "migrate": "node scripts/db-migrate.js",
+    "test": "jest",
+    "test:ci": "CI=true jest",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@matthewdbaldwin/microport-auth": "^0.10.1",
+    "@matthewdbaldwin/microport-contracts": "^0.5.2",
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.3.2",
+    "pino-http": "^10.3.0",
+    "prisma": "^7.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "//deps-note": "prisma CLI lives in dependencies on purpose — runtime does npm ci --omit=dev then npx prisma migrate deploy. feedback_prisma_cli_stays_in_dependencies. NO file: self-deps here — feedback_develop_to_main_bump_breaks_web_lockfile."
+}

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+# NOTE: CI and Deploy run in PARALLEL on main — a red CI does NOT block the ECS
+# rollout. Always confirm BOTH green via GHA after a ship.
+# feedback_deploy_does_not_gate_on_ci.
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+      # NODE_AUTH_TOKEN must be on the TEST job too, not only deploy — a private
+      # @matthewdbaldwin/* dep in package.json 401s `npm ci` here otherwise.
+      # feedback_private_gh_packages_dep_needs_token_in_ci_test_job. The repo must
+      # also be GRANTED Manage-Actions(Read) on each package.
+      # feedback_new_private_package_ci_access.
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Rate limiters skip ONLY when CI=true. feedback_rate_limiter_dev_skip.
+      - run: CI=true npm test
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

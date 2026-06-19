@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+*.log
+dist/
+.next/
+coverage/
+test-results/
+playwright-report/
+prisma/*.db
+.DS_Store

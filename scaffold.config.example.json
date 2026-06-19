@@ -1,0 +1,17 @@
+{
+  "appName": "ServicePort",
+  "appSlug": "serviceport",
+  "appTitle": "ServicePort",
+  "primaryRole": "agent",
+  "fkTable": "User",
+  "dbName": "serviceport",
+  "targetDir": "../serviceport",
+
+  "_notes": {
+    "appName": "Display name (PascalCase, shown in nav/login).",
+    "appSlug": "lower-kebab; drives npm package name, web app id (<slug>-web), cookie name (<slug>_token), AWS service name.",
+    "primaryRole": "The role string this platform introduces. Must be added to microport-contracts roles.ts before launch (Phase 4).",
+    "fkTable": "'users' (@@map snake-plural, like sp/op) OR 'User' (Prisma default, like rp/cp/ep). Pick one; all hand-written SQL must match. feedback_prisma_migration_fk_table_naming_per_repo.",
+    "targetDir": "Where to write the new repo, relative to this template. Keep it a sibling of the other satellites."
+  }
+}
