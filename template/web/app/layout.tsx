@@ -14,7 +14,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Apply stored theme before paint (no flash). theme.ts is server-safe. */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
         <LocaleProvider locale={locale} messages={messages}>

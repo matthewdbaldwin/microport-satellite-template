@@ -1,20 +1,146 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Fira+Sans:wght@100;200;300;400;500;600;700&display=swap')
+layer(base);
 
-/* Shared theme tokens (--fg/--bg/--surface/--border/--muted/--accent/...) and
-   the canonical themes live in microport-ui. Importing here keeps the satellite
-   on the shared palette; a LOCAL override silently wins, so keep local rules
-   minimal. feedback_local_theme_cascade_overrides_lib. */
+@import 'tailwindcss';
 @import '@matthewdbaldwin/microport-ui/themes.css';
+
+@source '../node_modules/@matthewdbaldwin/microport-ui/dist/**/*.{js,mjs,css}';
+
+@theme {
+  --color-fg: var(--text);
+
+  --color-overlay: var(--overlay);
+
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dk);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-surface-2: var(--surface2);
+  --color-surface-3: var(--surface3);
+  --color-surface: var(--surface);
+
+  --color-border-2: var(--border2);
+  --color-border: var(--border);
+
+  --color-muted-2: var(--muted2);
+  --color-muted: var(--muted);
+
+  --color-green: #22c55e;
+  --color-red: #ff144b;
+  --color-yellow: #f59e0b;
+  --color-purple: #802cf1;
+  --color-blue: #3b82f6;
+  --color-orange: #f97316;
+  --color-teal: #14b8a6;
+  --color-navy: #002d72;
+  --color-crimson: #ce1141;
+  --color-rose: #ef3340;
+  --color-magenta: #d4517a;
+  --color-violet: #5440cc;
+  --color-cyan: #00b5e2;
+  --color-cobalt: #0067b1;
+  --color-ink: #1e2240;
+  --color-slate: #8e8b8a;
+  --color-silver: #c9c5c0;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-ring: hsl(var(--ring));
+  --color-input: hsl(var(--input));
+
+  --font-sans: Fira Sans, ui-sans-serif, system-ui, sans-serif;
+  --font-display: Fira Sans, ui-sans-serif, sans-serif;
+  --font-mono: JetBrains Mono, ui-monospace, monospace;
+
+  --text-xs: 0.8rem;
+  --text-xs--line-height: 1rem;
+  --text-2xl: clamp(1.2rem, 4vw, 1.5rem);
+  --text-2xl--line-height: 2rem;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-out;
+  --animate-zoom-in: zoom-in 0.15s ease-out;
+  --animate-zoom-out: zoom-out 0.15s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes zoom-in {
+    from {
+      transform: scale(0.95);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+  @keyframes zoom-out {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(0.96);
+    }
+  }
+}
 
 body {
   background: var(--bg);
   color: var(--fg);
 }
 
-/* reduced-motion kill-switch MUST also cap iteration-count, or an infinite
-   animation becomes a strobe. feedback_reduced_motion_iteration_count_strobe. */
+/* reduced-motion kill-switch MUST cap iteration-count or infinite animations strobe.
+   feedback_reduced_motion_iteration_count_strobe. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

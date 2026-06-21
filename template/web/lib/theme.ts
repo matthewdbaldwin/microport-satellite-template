@@ -6,37 +6,52 @@
 import {
   createThemeApi,
   THEMES,
+  DARK_THEME_IDS,
+  isDarkThemeId,
   coerceThemeId,
   type ThemeId,
+  type ThemeMode,
+  type ThemeOption,
 } from '@matthewdbaldwin/microport-ui/themes';
 
 export const STORAGE_KEY = '__APP_SLUG___theme';
-export const DEFAULT_THEME: ThemeId = 'navy';
 
-export const themeApi = createThemeApi({
-  storageKey: STORAGE_KEY,
-  defaultTheme: DEFAULT_THEME,
-  // Persist remotely so the choice syncs across satellites. Fire even without a
-  // localStorage token (cookie carries auth). reconcile guards on hasLocal.
-  saveRemote: async (id: ThemeId) => {
-    if (typeof window === 'undefined') return;
-    try {
-      await fetch('/api/auth/theme', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': '__APP_SLUG__-web' },
-        credentials: 'include',
-        body: JSON.stringify({ theme: id }),
-      });
-    } catch { /* best-effort */ }
-  },
-});
-
-// Inline <script> string for RootLayout <head> — applies the stored theme before
-// paint so there's no flash, and is re-asserted on mount (hydration strips
-// data-theme). feedback_theme_hydration_strip_reassert.
-export function themeScript(): string {
-  return `(function(){try{var t=localStorage.getItem('${STORAGE_KEY}')||'${DEFAULT_THEME}';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+function saveThemeRemote(id: ThemeId): void {
+  if (typeof window === 'undefined') return;
+  const token = localStorage.getItem('__APP_SLUG___token');
+  // Fire even without a localStorage token; the HttpOnly cookie may still
+  // authenticate the request. reconcile guards on hasLocal.
+  fetch('/api/auth/me/theme', {
+    method:      'PATCH',
+    credentials: 'include',
+    headers:     {
+      'Content-Type':     'application/json',
+      'X-Requested-With': '__APP_SLUG__-web',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body:        JSON.stringify({ theme: id }),
+    keepalive:   true,
+  }).catch(() => { /* swallowed — local cache wins this session */ });
 }
 
-export { THEMES, coerceThemeId };
-export type { ThemeId };
+const api = createThemeApi({
+  storageKey: STORAGE_KEY,
+  onSave: saveThemeRemote,
+});
+
+export const {
+  getStoredTheme,
+  applyTheme,
+  saveTheme,
+  themeScript,
+  readRawStoredTheme,
+  reconcileThemeWithUser,
+} = api;
+
+/** @deprecated use getStoredTheme */
+export const getSavedTheme = getStoredTheme;
+/** @deprecated use ThemeId */
+export type Theme = ThemeId;
+
+export { THEMES, DARK_THEME_IDS, isDarkThemeId, coerceThemeId };
+export type { ThemeId, ThemeMode, ThemeOption };

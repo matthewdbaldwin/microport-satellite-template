@@ -20,6 +20,7 @@ export function BugReportButton() {
   const [detail, setDetail] = useState('');
   const [sent, setSent] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot createPortal mount guard
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 

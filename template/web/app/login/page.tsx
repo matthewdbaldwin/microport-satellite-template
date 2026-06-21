@@ -50,6 +50,7 @@ function LoginInner() {
   useEffect(() => {
     if (loading) return;
     if (user) { clearLoop(); router.replace('/'); return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate SSO-deny dead-end
     if (ssoErr) { setBlocked(ssoErr); return; }        // explicit deny → dead-end
     if (tripsLoop()) { setBlocked('loop'); return; }   // runaway → dead-end
     window.location.href = SSO_HREF;
