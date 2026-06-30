@@ -5,13 +5,14 @@
 // all hand-written SQL must match. feedback_prisma_migration_fk_table_naming_per_repo.
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
+  // Prisma 7.8 removed `url` from the schema — the connection URL lives in
+  // prisma.config.mjs (Migrate) + the PrismaPg adapter (runtime).
+  // feedback_prisma_config_mjs_not_ts.
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {

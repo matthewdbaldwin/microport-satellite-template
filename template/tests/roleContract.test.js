@@ -9,7 +9,7 @@
 let ROLE_CONTRACTS = {};
 let mapContractRole = () => null;
 try {
-  ({ ROLE_CONTRACTS, mapContractRole } = require('@matthewdbaldwin/microport-contracts'));
+  ({ ROLE_CONTRACTS, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts'));
 } catch { /* contracts not installed in this checkout yet */ }
 
 const APP = '__APP_SLUG__';
@@ -17,10 +17,10 @@ const registered = !!(ROLE_CONTRACTS && ROLE_CONTRACTS[APP]);
 
 (registered ? describe : describe.skip)('role contract — __APP_SLUG__', () => {
   test('the primary role maps through', () => {
-    expect(mapContractRole(APP, { app_roles: { [APP]: '__PRIMARY_ROLE__' } })).toBe('__PRIMARY_ROLE__');
+    expect(mapContractRole(APP, '__PRIMARY_ROLE__')).toBe('__PRIMARY_ROLE__');
   });
   test('an unknown role → null (never a silent grant)', () => {
-    expect(mapContractRole(APP, { app_roles: { [APP]: 'not-a-real-role' } })).toBeNull();
+    expect(mapContractRole(APP, 'not-a-real-role')).toBeNull();
   });
 });
 

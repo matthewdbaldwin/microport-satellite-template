@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 prisma/*.db
 .DS_Store
+next-env.d.ts
+*.tsbuildinfo

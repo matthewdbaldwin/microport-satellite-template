@@ -9,7 +9,8 @@
 const db = require('../lib/db');
 const logger = require('../lib/logger');
 const { createVerifier } = require('@matthewdbaldwin/microport-auth');
-const { SsoClaims, mapContractRole } = require('@matthewdbaldwin/microport-contracts');
+// contracts exports `mapRole`; alias to mapContractRole to match the fleet.
+const { SsoClaims, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts');
 
 const COOKIE_NAME = '__APP_SLUG___token';
 const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
@@ -50,7 +51,9 @@ async function requireAuth(req, res, next) {
     }
 
     // ONE role map for the whole platform; null = not granted → 403 (not a loop).
-    const role = mapContractRole('__APP_SLUG__', payload);
+    // Extract this app's wire role from the SSO claims, then map the STRING.
+    const wireRole = payload.app_roles && payload.app_roles['__APP_SLUG__'];
+    const role = wireRole ? mapContractRole('__APP_SLUG__', wireRole) : null;
     if (!role) {
       return res.status(403).json({
         error: 'You do not have access to __APP_NAME__. Ask your admin to grant access in SalesPort.',
