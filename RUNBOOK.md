@@ -66,6 +66,7 @@ that explains *why*.
 
 ## Phase 7 — AWS provisioning (dev first)  *(MANUAL)*
 - ☐ ECR repo; ECS service in `microport-dev` then `microport`, **bare-named** (`<slug>`); ALB target group + listener rule.
+- ☐ **Open the new API port in the task security group** from the ALB SG (dev `sg-01b2d2aaa47f0363c` ← ALB `sg-0b9668543f1166623`; mirror in prod). The shared task SG only allows the ports already-minted satellites use — a new app's API port (ProductPort = 4006) is NOT open by default, so the ALB API health check times out (`Target.Timeout`), the API target never goes healthy, and **every deploy's `wait services-stable` fails** even though the app is up and listening. Web (3000) is shared so it looks fine — only the new API port bites. → `feedback_new_satellite_api_port_sg_ingress`
 - ☐ Prod task role (+`ses:SendEmail` **only if it emails**); dev task-role clone **minus SES**; dev logs `/ecs/<slug>-dev-*`. → `reference_dev_task_roles_no_ses`, `feedback_ses_task_role_identity_scoping`
 - ☐ Secrets Manager + DML-only `app_runtime` role (B2). → `db_hardening_plan`
 - ☐ **Pool cap 5** (not 50); ECS `maximumPercent` **150**. → `rds_connection_pool_exhaustion`
@@ -78,6 +79,7 @@ that explains *why*.
 
 ## Phase 9 — Footgun gate + ship  *(MANUAL)*
 - ☐ Run **recon**, **prisma-migrate-safe**, **vern**, **role-permission-audit**, **code-error-sweep**; then **deploy-verifier** after.
+- ☐ **Substantial new logic is TDD by default** — extract the pure logic (mapping / validation / shaping / filtering) into deep modules and lock each with a behavior suite (test-first). `tsc`/`eslint`/`next build`/live-smoke do NOT cover behavior; the seeded tests below are the floor, not the ceiling. → `feedback_substantial_builds_default_to_tdd`
 - ☐ Ship **consumers first, SalesPort last**. → `feedback_cross_repo_protocol_change_must_ship_both_sides`
 
 ---
