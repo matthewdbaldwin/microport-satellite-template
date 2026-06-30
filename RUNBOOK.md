@@ -57,6 +57,8 @@ that explains *why*.
 - ✓ Reduced-motion kill-switch caps iteration-count (no strobe). → `feedback_reduced_motion_iteration_count_strobe`
 - ✓ Tri-locale en/zh/fr via table-driven `LocaleProvider`. → `feedback_locale_provider_table_driven`
 - ✓ TopBar page-h1 (no body h1); AppSwitcher entry; BottomNav on mobile. → `feedback_topbar_page_h1_standard`
+- ☐ **App shell root = `fixed inset-0 flex overflow-hidden`, NOT `flex h-screen h-dvh overflow-hidden`.** An in-flow `h-screen h-dvh` root lets a vh-vs-dvh / sub-pixel delta grow `<html>` past the viewport → a 2nd (outer) scrollbar + a gap above the TopBar. Pinning the shell out of flow makes it exactly the visual viewport; only `<main>`/sidebar `<nav>` scroll. Fixed across all 5 satellites 2026-06-30. → `reference_microport_com_subdomains` (shell-fix fan-out)
+- ✓ Interactive controls meet the **44px tap-target floor** — the `.btn`/`.btn-primary` utility ships `min-height: 44px` + `items-center justify-center`. → `feedback_tap_target_standard`
 - ✓ BugReportButton via `createPortal` to body at `bottom-20 md:bottom-4 z-40`, every authed user, forwards to sp `/cross-app` signed. → `bug-report-fanout`, `feedback_helpbutton_inline_zindex`
 - ✓ CSRF: raw XHR sets `X-Requested-With: <slug>-web`; `web/lib/api.ts` surfaces 422 details + scopes the 401 auto-logout to `/auth/me`. → `feedback_csrf_bootstrap_allowlist_drift`, `feedback_validation_details_must_propagate`, `feedback_proxy_401_cascade`
 - ☐ Watch local `globals.css` cascade overriding lib themes. → `feedback_local_theme_cascade_overrides_lib`

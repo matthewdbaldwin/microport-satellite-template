@@ -153,7 +153,10 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center rounded-md px-4 font-medium;
+    /* min-height 44px = platform tap-target standard (feedback_tap_target_standard);
+       items-center + justify-center keep label centered (incl. full-width buttons). */
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 font-medium;
+    min-height: 44px;
     background: var(--accent);
     color: var(--accent-fg);
   }
