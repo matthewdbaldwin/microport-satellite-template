@@ -134,6 +134,23 @@ layer(base);
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Legacy/ergonomic CSS-var aliases → microport-ui's real theme primitives.
+   The @theme block above only generates Tailwind utility CLASSES (text-fg,
+   bg-surface-2, …). Raw `var(--fg)` / `var(--danger)` used in inline styles are
+   NOT those classes — without these aliases they resolve to nothing (unstyled /
+   invisible text). microport-ui/themes.css defines --text, --red, --surface2 per
+   theme; these bridge the shorter names every satellite's components use. Keep in
+   sync with the fleet. feedback_local_theme_cascade_overrides_lib.
+────────────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme] {
+  --fg:        var(--text);
+  --danger:    var(--red);
+  --danger-fg: var(--accent-fg);
+  --surface-2: var(--surface2);
+}
+
 body {
   background: var(--bg);
   color: var(--fg);

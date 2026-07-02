@@ -1,41 +1,80 @@
-name: Deploy (prod)
+name: Deploy to AWS
 
 on:
-  push:
-    branches: [main]
+  # Gated on CI: deploy runs only AFTER the "CI" workflow completes on main, and
+  # the job-level `if` requires conclusion == 'success', so a red CI no longer
+  # ships to prod. feedback_deploy_does_not_gate_on_ci.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, master]
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write   # OIDC
   contents: read
+  packages: read
 
 env:
   AWS_REGION: eu-central-1
-  ECR_REPO: __APP_SLUG__
+  ECR_REGISTRY: 682624892433.dkr.ecr.eu-central-1.amazonaws.com
   ECS_CLUSTER: microport
-  ECS_SERVICE: __APP_SLUG__        # bare-named, not <app>-api
+  ECS_SERVICE: __APP_SLUG__
 
 jobs:
   deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
+    # The gate: deploy only when the triggering CI run passed AND was a push to
+    # main (not a PR build). A red CI produces conclusion != 'success' -> no deploy.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}   # OIDC role (create in Phase 7)
+          # Deploy the exact commit CI validated, not just the branch tip.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: aws-actions/amazon-ecr-login@v2
-        id: ecr
-      - name: Build & push API image
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push __APP_SLUG__-api
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IMAGE="$REGISTRY/$ECR_REPO:$GITHUB_SHA"
-          docker build --build-arg NODE_AUTH_TOKEN="$NODE_AUTH_TOKEN" -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-      - name: Roll the ECS service
+          docker build --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN -t $ECR_REGISTRY/__APP_SLUG__-api:latest .
+          docker push $ECR_REGISTRY/__APP_SLUG__-api:latest
+
+      - name: Build and push __APP_SLUG__-web
+        env:
+          NODE_AUTH_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN:      ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment >/dev/null
-          # Verify the new task picks up the image — feedback_ecs_gha_stale_image.
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          docker build \
+            --build-arg API_URL=http://localhost:4100 \
+            --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+            --build-arg SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN \
+            -t $ECR_REGISTRY/__APP_SLUG__-web:latest ./web
+          docker push $ECR_REGISTRY/__APP_SLUG__-web:latest
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment \
+            --output json --query "service.{service:serviceName,status:status}" | cat
+
+      - name: Wait for ECS rollover
+        run: |
+          aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION \
+          || aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ECS_SERVICE --region $AWS_REGION

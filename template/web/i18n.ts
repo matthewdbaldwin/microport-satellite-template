@@ -2,7 +2,7 @@
 // loads its messages bundle. feedback_locale_provider_table_driven.
 import { getRequestConfig } from 'next-intl/server';
 import { cookies } from 'next/headers';
-import { LOCALES, DEFAULT_LOCALE } from '@/components/LocaleProvider';
+import { LOCALES, DEFAULT_LOCALE } from '@/lib/locales';
 
 export default getRequestConfig(async () => {
   const cookieLocale = (await cookies()).get('NEXT_LOCALE')?.value;

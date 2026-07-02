@@ -1,6 +1,6 @@
 // CSRF guard — mutating /api requests must carry X-Requested-With: __APP_SLUG__-web
-// (a header a cross-site form can't set). Signature-authed ingress (webhooks,
-// SSO lifecycle) bypass via BOOTSTRAP_PATHS — they verify their own HMAC.
+// (a header a cross-site form can't set). Signature-authed ingress (the SSO
+// lifecycle receiver) bypasses via BOOTSTRAP_PATHS — it verifies its own HMAC.
 // feedback_csrf_bootstrap_allowlist_drift. Fan this list out to all receivers in
 // the same commit when you add an ingress route.
 'use strict';
@@ -10,7 +10,6 @@ const EXPECTED = '__APP_SLUG__-web';
 
 // Paths (relative to the /api mount) that authenticate via signature, not cookie.
 const BOOTSTRAP_PATHS = [
-  /^\/webhooks(\/|$)/,
   /^\/sso\/lifecycle(\/|$)/,
 ];
 

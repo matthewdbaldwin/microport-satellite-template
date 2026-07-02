@@ -1,0 +1,164 @@
+name: Security Audit
+
+# Weekly dependency-vulnerability cadence (Track 4 — security cadence).
+#
+# Runs `npm audit` against the committed lockfiles (root + web) every Monday
+# 07:00 UTC and surfaces HIGH/CRITICAL advisories as a single, deduped
+# `security-alert` GitHub issue — opened when findings appear, commented on
+# follow-up runs, and auto-closed when the tree comes back clean. Same
+# closed-loop issue model as monitor.yml (the health canary), so the backlog
+# stays self-maintaining rather than depending on a human to remember to run
+# `npm audit`.
+#
+# Notes:
+#   • --package-lock-only: audits the lockfile without installing, so the job
+#     needs no registry auth (no NODE_AUTH_TOKEN) and runs in seconds.
+#   • --registry=https://registry.npmjs.org: forces the public advisory DB.
+#     GitHub Packages (where @matthewdbaldwin/* live) has no audit endpoint, so
+#     auditing against it would error; private packages simply return no
+#     advisories from npmjs, which is correct.
+#   • --omit=dev: prod-tree only. Dev-only advisories (e.g. the inert prisma
+#     CLI / hono HIGH transitive — feedback_prisma_cli_stays_in_dependencies)
+#     are not deploy-reachable and would be pure noise here.
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: Audit dependencies (HIGH/CRITICAL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Audit root + web
+        id: audit
+        env:
+          # Acknowledged-inert advisories: package names reported for visibility
+          # but NOT counted toward the alert. `hono` is the prisma-CLI transitive
+          # — prisma CLI is a prod dependency (it runs `migrate deploy` at
+          # startup, so it can't move to devDeps), but hono itself is never
+          # served, so its advisories are not deploy-reachable. See
+          # feedback_prisma_cli_stays_in_dependencies. Add a name here only with
+          # a documented reason; re-review when prisma ships a patched CLI.
+          ACK: 'hono'
+        run: |
+          set +e
+          REPORT=""
+          ACKREPORT=""
+          TOTAL=0
+
+          audit_dir() {
+            local label="$1"
+            local dir="$2"
+            [ -f "$dir/package-lock.json" ] || { echo "↷ $label — no lockfile, skipped"; return; }
+            local json
+            json=$(cd "$dir" && npm audit --package-lock-only --omit=dev \
+                     --registry=https://registry.npmjs.org --json 2>/dev/null)
+            # high/critical advisories, split into actionable vs acknowledged-inert.
+            # Single-line jq filters (not inline multi-line python) — a `run: |`
+            # block scalar strips a fixed indent from every line, and python's
+            # own column-0 top-level statements break out of the block (YAML
+            # startup_failure). jq has no such indentation sensitivity.
+            local ackjson act acked n
+            ackjson=$(printf '%s\n' $ACK | jq -R . | jq -cs .)
+            act=$(echo "$json"   | jq -r --argjson a "$ackjson" '[.vulnerabilities|to_entries[]|select(.value.severity=="high" or .value.severity=="critical")|select((.key|IN($a[]))|not)|"\(.key) (\(.value.severity))"]|join(", ")' 2>/dev/null)
+            acked=$(echo "$json" | jq -r --argjson a "$ackjson" '[.vulnerabilities|to_entries[]|select(.value.severity=="high" or .value.severity=="critical")|select(.key|IN($a[]))|"\(.key) (\(.value.severity))"]|join(", ")' 2>/dev/null)
+            n=$(echo "$json"     | jq    --argjson a "$ackjson" '[.vulnerabilities|to_entries[]|select(.value.severity=="high" or .value.severity=="critical")|select((.key|IN($a[]))|not)]|length' 2>/dev/null)
+            n=${n:-0}
+            TOTAL=$((TOTAL + n))
+            if [ "$n" -gt 0 ]; then
+              echo "⚠️ $label — actionable: $act"
+              REPORT="$REPORT\n- **$label**: $act"
+            else
+              echo "✅ $label — no actionable high/critical"
+            fi
+            [ -n "$acked" ] && ACKREPORT="$ACKREPORT\n- **$label** (acknowledged): $acked"
+          }
+
+          audit_dir "root" "."
+          audit_dir "web"  "web"
+
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          {
+            echo 'report<<EOF'
+            echo -e "$REPORT"
+            [ -n "$ACKREPORT" ] && { echo -e "\n_Acknowledged-inert (not alerting):_"; echo -e "$ACKREPORT"; }
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open / update security issue
+        if: steps.audit.outputs.total != '0'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const report = `${{ steps.audit.outputs.report }}`;
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const now    = new Date().toISOString();
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'security-alert', state: 'open', per_page: 1,
+            });
+
+            const body = [
+              `**Scanned at:** ${now}`,
+              '',
+              '### HIGH / CRITICAL advisories (prod tree)',
+              report,
+              '',
+              'Run `npm audit --omit=dev` locally and bump the affected dependency on `develop`.',
+              `[View run](${runUrl})`,
+            ].join('\n');
+
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `**Follow-up scan** at ${now}\n\n${report}\n\n[View run](${runUrl})`,
+              });
+              core.info(`Commented on existing issue #${issues[0].number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: '🔐 Security audit — HIGH/CRITICAL dependency advisories',
+                body,
+                labels: ['security-alert'],
+              });
+              core.info(`Opened issue #${issue.number}`);
+            }
+
+      - name: Auto-close resolved issue
+        if: steps.audit.outputs.total == '0'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'security-alert', state: 'open', per_page: 1,
+            });
+            if (issues.length > 0) {
+              const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `✅ No HIGH/CRITICAL advisories as of ${new Date().toISOString()}. Auto-closing.\n\n[View run](${runUrl})`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues[0].number, state: 'closed',
+              });
+              core.info(`Closed resolved issue #${issues[0].number}`);
+            }

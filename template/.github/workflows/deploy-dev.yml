@@ -1,39 +1,74 @@
-name: Deploy (dev)
+name: Deploy to AWS (dev)
+
+# Builds develop into :dev images and rolls the __APP_SLUG__-dev service in the
+# microport-dev cluster. Mirrors deploy.yml (main -> :latest -> microport), swapped
+# to develop -> :dev -> microport-dev. Two images (api + web), like the fleet.
 
 on:
   push:
     branches: [develop]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.env.example'
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
   contents: read
+  packages: read
 
 env:
   AWS_REGION: eu-central-1
-  ECR_REPO: __APP_SLUG__
+  ECR_REGISTRY: 682624892433.dkr.ecr.eu-central-1.amazonaws.com
   ECS_CLUSTER: microport-dev
   ECS_SERVICE: __APP_SLUG__-dev    # dev task role omits ses:SendEmail
 
 jobs:
-  deploy:
+  deploy-dev:
+    name: Build & Deploy (dev)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: aws-actions/amazon-ecr-login@v2
-        id: ecr
-      - name: Build & push API image
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push __APP_SLUG__-api:dev
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IMAGE="$REGISTRY/$ECR_REPO:dev-$GITHUB_SHA"
-          docker build --build-arg NODE_AUTH_TOKEN="$NODE_AUTH_TOKEN" -t "$IMAGE" .
-          docker push "$IMAGE"
+          docker build --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN -t $ECR_REGISTRY/__APP_SLUG__-api:dev .
+          docker push $ECR_REGISTRY/__APP_SLUG__-api:dev
+
+      - name: Build and push __APP_SLUG__-web:dev
+        env:
+          NODE_AUTH_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN:      ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          docker build \
+            --build-arg API_URL=http://localhost:4100 \
+            --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+            --build-arg SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN \
+            --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT=development \
+            -t $ECR_REGISTRY/__APP_SLUG__-web:dev ./web
+          docker push $ECR_REGISTRY/__APP_SLUG__-web:dev
+
       - name: Roll the dev ECS service
         run: |
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment >/dev/null
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+          aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster $ECS_CLUSTER --services $ECS_SERVICE

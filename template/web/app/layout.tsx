@@ -5,7 +5,12 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LocaleProvider } from '@/components/LocaleProvider';
 import { BugReportButton } from '@/components/BugReportButton';
 
-export const metadata = { title: '__APP_TITLE__' };
+// metadataBase resolves relative OG/canonical URLs against the real prod host
+// (next warns + falls back to localhost without it). Fleet-wide 2026-07-01.
+export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://__APP_SLUG__.microport.com'),
+  title: '__APP_TITLE__',
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();

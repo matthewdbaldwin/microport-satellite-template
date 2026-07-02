@@ -1,18 +1,16 @@
 'use client';
 
-// Table-driven locales — a 4th locale is one row here + one messages/<x>.json.
+// The locale table lives in the server-safe @/lib/locales (no 'use client') so
+// the next-intl server config (i18n.ts) can import it without the client-
+// reference-proxy trap (`LOCALES.find is not a function` at SSR). Re-exported
+// here for back-compat with existing imports.
 // feedback_locale_provider_table_driven, project_i18n_coverage_state.
 import { NextIntlClientProvider } from 'next-intl';
 import { type ReactNode } from 'react';
+import { LOCALES, DEFAULT_LOCALE, type LocaleCode } from '@/lib/locales';
 
-export const LOCALES = [
-  { code: 'en-US', label: 'English', file: 'en' },
-  { code: 'zh-CN', label: '中文',     file: 'zh' },
-  { code: 'fr-FR', label: 'Français', file: 'fr' },
-] as const;
-
-export type LocaleCode = (typeof LOCALES)[number]['code'];
-export const DEFAULT_LOCALE: LocaleCode = 'en-US';
+export { LOCALES, DEFAULT_LOCALE };
+export type { LocaleCode };
 
 export function LocaleProvider({
   locale,

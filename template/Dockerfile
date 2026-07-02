@@ -18,8 +18,9 @@ COPY package*.json prisma.config.mjs ./
 COPY prisma ./prisma
 COPY scripts ./scripts
 COPY src ./src
-# eu-central-1 RDS CA bundle — provide in the build context; required for TLS.
-# COPY rds-ca-eu-central-1.pem ./rds-ca-eu-central-1.pem
+# eu-central-1 RDS CA bundle (public AWS cert) — required for verified TLS;
+# src/lib/db.js refuses to connect without it. feedback_prisma_adapter_pg_ssl.
+COPY rds-ca-eu-central-1.pem ./rds-ca-eu-central-1.pem
 RUN npx prisma generate
 EXPOSE 4100
 # Migrate on boot, then serve. Migrations are idempotent (IF NOT EXISTS) because

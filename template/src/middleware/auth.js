@@ -15,13 +15,22 @@ const { SsoClaims, mapRole: mapContractRole } = require('@matthewdbaldwin/microp
 const COOKIE_NAME = '__APP_SLUG___token';
 const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
 
+// microport-auth's createVerifier takes `publicKey` (a DECODED PEM), pins RS256
+// + issuer at config time, and requires `audience` to be passed AT THE VERIFY
+// CALL (not in config). SALESPORT_JWT_PUBLIC_KEY is a base64-encoded PEM, so
+// decode it here. Wiring `publicKeyBase64` + config-time `audience` (and calling
+// verify(token) with no audience) throws "audience is required" on EVERY request
+// → 401 login-loop. feedback_createverifier_wiring_publickey_call_audience.
+const SALESPORT_PUBLIC_KEY = process.env.SALESPORT_JWT_PUBLIC_KEY
+  ? Buffer.from(process.env.SALESPORT_JWT_PUBLIC_KEY, 'base64').toString('utf8')
+  : undefined;
+
 const verify = createVerifier({
-  publicKeyBase64: process.env.SALESPORT_JWT_PUBLIC_KEY,
-  issuer:          process.env.SALESPORT_JWT_ISSUER,
-  audience:        AUDIENCE,
-  claimsSchema:    SsoClaims,
+  publicKey:    SALESPORT_PUBLIC_KEY,
+  issuer:       process.env.SALESPORT_JWT_ISSUER,
+  claimsSchema: SsoClaims,
   // bake clean, then 'enforce'. Break-glass: SSO_CLAIMS_MODE=warn (or off).
-  claimsMode:      process.env.SSO_CLAIMS_MODE || 'enforce',
+  claimsMode:   process.env.SSO_CLAIMS_MODE || 'enforce',
 });
 
 async function requireAuth(req, res, next) {
@@ -32,7 +41,7 @@ async function requireAuth(req, res, next) {
 
   let payload;
   try {
-    payload = verify(token); // throws on bad sig/issuer/audience; claims per claimsMode
+    payload = verify(token, { audience: AUDIENCE }); // throws on bad sig/issuer/audience; claims per claimsMode
   } catch {
     return res.status(401).json({ error: 'Token expired or invalid' });
   }

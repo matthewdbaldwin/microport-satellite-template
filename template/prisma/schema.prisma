@@ -51,18 +51,26 @@ model Session {
   @@map("sessions")
 }
 
-// Durable outbox for any outbound webhook from this platform (at-least-once).
-model WebhookOutbox {
-  id            String    @id @default(cuid())
-  channel       String    // e.g. "__APP_SLUG__->salesport"
-  eventType     String
+// Inbound SSO-lifecycle event audit + idempotency store (fleet parity). Every
+// event salesport delivers to /api/sso/lifecycle/event is logged here; the
+// unique senderEventId (salesport's LifecycleOutbox.id, from the
+// X-Lifecycle-Event-Id header) makes retry dedup a single findUnique.
+// See src/routes/ssoLifecycle.js.
+model UserLifecycleEvent {
+  id            Int       @id @default(autoincrement())
+  senderEventId String?   @unique
+  email         String
+  kind          String // grant | revoke | disable | reactivate
+  prevRole      String?
+  newRole       String?
+  actorEmail    String?
+  actorRole     String?
   payload       Json
-  correlationId String
-  attempts      Int       @default(0)
-  deliveredAt   DateTime?
-  lastError     String?
-  createdAt     DateTime  @default(now())
+  receivedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  error         String?   @db.Text
 
-  @@index([deliveredAt])
-  @@map("webhook_outbox")
+  @@index([email])
+  @@index([receivedAt])
+  @@map("user_lifecycle_events")
 }
