@@ -1,6 +1,7 @@
 import './globals.css';
 import { getLocale, getMessages } from 'next-intl/server';
 import { themeScript } from '@/lib/theme';
+import { preloadCleanupScript, chunkRecoveryScript } from '@matthewdbaldwin/microport-ui';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LocaleProvider } from '@/components/LocaleProvider';
 import { BugReportButton } from '@/components/BugReportButton';
@@ -20,6 +21,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         {/* Apply stored theme before paint (no flash). theme.ts is server-safe. */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* Strip stale prefetch/preload noise + recover from stuck-H2 chunk-load
+            failures (Firefox) — shared fleet scripts from microport-ui. */}
+        <script dangerouslySetInnerHTML={{ __html: preloadCleanupScript }} />
+        <script dangerouslySetInnerHTML={{ __html: chunkRecoveryScript }} />
       </head>
       <body>
         <LocaleProvider locale={locale} messages={messages}>

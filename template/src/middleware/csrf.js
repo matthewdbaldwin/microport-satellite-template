@@ -1,27 +1,29 @@
-// CSRF guard — mutating /api requests must carry X-Requested-With: __APP_SLUG__-web
-// (a header a cross-site form can't set). Signature-authed ingress (the SSO
-// lifecycle receiver) bypasses via BOOTSTRAP_PATHS — it verifies its own HMAC.
-// feedback_csrf_bootstrap_allowlist_drift. Fan this list out to all receivers in
-// the same commit when you add an ingress route.
+// src/middleware/csrf.js
+// CSRF guard for cookie-authed mutations. The guard logic — X-Requested-With
+// requirement + Origin allowlist + mount-prefix-safe path recomposition — lives
+// in microport-auth's createCsrfGuard. Per-app config is the required header
+// value, any exact pre-auth bootstrap paths, and the Origin allowlist. The
+// platform-standard bootstrap prefixes (/api/webhooks/, /api/sso/lifecycle) are
+// the module default, so they can't drift per-repo
+// (feedback_csrf_bootstrap_allowlist_drift).
+// Origins are pinned to WEB_ORIGIN — the same env this app's CORS reads — NOT
+// the module's FRONTEND_ORIGIN default
+// (feedback_shared_module_default_replaces_per_app_env).
 'use strict';
 
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-const EXPECTED = '__APP_SLUG__-web';
+const { createCsrfGuard } = require('@matthewdbaldwin/microport-auth');
 
-// Paths (relative to the /api mount) that authenticate via signature, not cookie.
-const BOOTSTRAP_PATHS = [
-  /^\/sso\/lifecycle(\/|$)/,
-];
+const csrfGuard = createCsrfGuard({
+  headerValue: '__APP_SLUG__-web',
+  bootstrapPaths: [
+    // Add exact full paths that authenticate via a one-time code instead of the
+    // session cookie, e.g. '/api/auth/sso/exchange' if this app adds a POST
+    // exchange route. The default GET /sso/callback needs no bypass (safe method).
+  ],
+  allowedOrigins: () => {
+    const list = (process.env.WEB_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return list.length ? list : ['http://localhost:3100'];
+  },
+});
 
-function csrfGuard(req, res, next) {
-  if (SAFE_METHODS.has(req.method)) return next();
-  // req.path is relative to the /api mount here; guard against mount-prefix drift.
-  const p = (req.baseUrl && req.baseUrl.replace(/^\/api/, '')) + req.path;
-  if (BOOTSTRAP_PATHS.some((re) => re.test(p) || re.test(req.path))) return next();
-  if (req.get('X-Requested-With') !== EXPECTED) {
-    return res.status(403).json({ error: 'Missing or invalid X-Requested-With header.' });
-  }
-  return next();
-}
-
-module.exports = { csrfGuard, BOOTSTRAP_PATHS, EXPECTED };
+module.exports = { csrfGuard };
