@@ -24,6 +24,13 @@ const lifecycleGuard = createLifecycleGuard({
   secret: process.env.SALESPORT_LIFECYCLE_SECRET || null,
   signatureHeader: 'x-salesport-signature',
   allowUnsigned: process.env.ALLOW_UNSIGNED_LIFECYCLE === 'true',
+  // HubPort is the fleet grant authority: accept its x-hubport-signature too,
+  // signed with HUBPORT_LIFECYCLE_SECRET. Inert until that secret is provisioned
+  // (a blank secret is skipped by the guard), so this ships ahead of HubPort's
+  // send-side (consumers-first) with zero behavior change.
+  additionalEmitters: [
+    { secret: process.env.HUBPORT_LIFECYCLE_SECRET || null, signatureHeader: 'x-hubport-signature' },
+  ],
 });
 
 router.post('/event', lifecycleGuard, async (req, res) => {

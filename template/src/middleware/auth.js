@@ -24,13 +24,30 @@ const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
 const SALESPORT_PUBLIC_KEY = process.env.SALESPORT_JWT_PUBLIC_KEY
   ? Buffer.from(process.env.SALESPORT_JWT_PUBLIC_KEY, 'base64').toString('utf8')
   : undefined;
+// Dual-key (HubPort IdP lift) — an OPTIONAL second STATIC acceptor. Unset today
+// → byte-identical single-key behavior (the lib filters blank keys). Fill with
+// the HubPort public key at the issuer flip so this app accepts HubPort-signed
+// tokens WITHOUT a synchronized all-fleet redeploy. Pairs with the `jwks` path
+// below: JWKS = rotation; this = static fallback that can never fail closed.
+const SALESPORT_PUBLIC_KEY_B = process.env.SALESPORT_JWT_PUBLIC_KEY_B
+  ? Buffer.from(process.env.SALESPORT_JWT_PUBLIC_KEY_B, 'base64').toString('utf8')
+  : '';
 
 const verify = createVerifier({
   publicKey:    SALESPORT_PUBLIC_KEY,
   issuer:       process.env.SALESPORT_JWT_ISSUER,
+  // HubPort IdP lift — accept a second static key during the issuer flip. Empty
+  // (inert) until the HubPort public key is provisioned as SALESPORT_JWT_PUBLIC_KEY_B.
+  additionalKeys: [{ publicKey: SALESPORT_PUBLIC_KEY_B }],
+  // Rotation-friendly JWKS path — INERT until HUBPORT_JWKS_URL is set, and even
+  // then STRICTLY ADDITIVE: the static acceptors above stay the fallback, so a
+  // JWKS outage can never fail auth closed. Lets HubPort rotate its signing key
+  // without re-provisioning this app.
+  jwks:         process.env.HUBPORT_JWKS_URL ? { url: process.env.HUBPORT_JWKS_URL, logger } : undefined,
   claimsSchema: SsoClaims,
   // bake clean, then 'enforce'. Break-glass: SSO_CLAIMS_MODE=warn (or off).
   claimsMode:   process.env.SSO_CLAIMS_MODE || 'enforce',
+  logger,
 });
 
 async function requireAuth(req, res, next) {

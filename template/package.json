@@ -13,8 +13,8 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@matthewdbaldwin/microport-auth": "^0.11.0",
-    "@matthewdbaldwin/microport-contracts": "^0.5.2",
+    "@matthewdbaldwin/microport-auth": "^0.15.0",
+    "@matthewdbaldwin/microport-contracts": "^0.6.1",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "cookie-parser": "^1.4.6",
