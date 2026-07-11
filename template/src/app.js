@@ -13,6 +13,10 @@ const { requireAuth } = require('./middleware/auth');
 const app = express();
 app.disable('x-powered-by');
 
+// Trust the ALB / load-balancer proxy so rate limiters read the real
+// client IP from X-Forwarded-For rather than the proxy's internal address.
+app.set('trust proxy', 1);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
