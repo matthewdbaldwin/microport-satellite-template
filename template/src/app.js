@@ -43,8 +43,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Dual-mount health: the ALB target-group check + the same-origin /api proxy both
-// hit /api/health; the bare /health stays for direct/liveness probes.
-const health = (_req, res) => res.json({ ok: true, service: '__APP_SLUG__-api', version: require('../package.json').version });
+// hit /api/health; the bare /health stays for direct/liveness probes. Canonical
+// fleet shape { status, app, timestamp, version } (matches salesport/execport +
+// what the deploy-verifier / health probes parse — .app + .version).
+const health = (_req, res) => res.json({
+  status:    'ok',
+  app:       '__APP_SLUG__',
+  timestamp: new Date().toISOString(),
+  version:   require('../package.json').version,
+});
 app.get('/health', health);
 app.get('/api/health', health);
 
