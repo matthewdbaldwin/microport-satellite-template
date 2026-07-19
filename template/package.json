@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@matthewdbaldwin/microport-auth": "^0.15.0",
-    "@matthewdbaldwin/microport-contracts": "^0.6.1",
+    "@matthewdbaldwin/microport-contracts": "^0.10.0",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "cookie-parser": "^1.4.6",
@@ -23,6 +23,7 @@
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
     "pino": "^9.3.2",
     "pino-http": "^10.3.0",
     "prisma": "^7.0.0",

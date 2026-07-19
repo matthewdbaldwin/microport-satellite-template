@@ -32,6 +32,7 @@ Then work through the **manual** steps the generator prints (and
 | 3 shared libs pinned, `.npmrc`, CI `NODE_AUTH_TOKEN` on test job | **Grant repo Manage-Actions access** on each private pkg |
 | SSO-spoke `auth.js` (cookie, claimsMode, contracts role-map, loop guard) | Add platform + role to **contracts `roles.ts`** + publish |
 | Webhook receiver (verify-before-ack, 2xx data-level) + outbox | Register **webhook secrets** on both task defs |
+| SSO-spoke wiring + hub-first bug-report forward (`BUGREPORT_FORWARD_URL`) | **Register the mint at HubPort** (SSO_APPS / KNOWN_SATELLITES / HANDOFF_APPS / channel secret) — RUNBOOK Phase 5b |
 | Theme (server-safe), tri-locale, BugReportButton, AppSwitcher, login `?sso_err` guard | The business **schema / routes / pages** |
 | CI/Deploy workflows, role-contract + webhook tests, Playwright smoke | **AWS** provisioning (ECR/ECS/ALB/RDS/secrets/OIDC) |
 
