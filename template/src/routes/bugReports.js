@@ -26,6 +26,7 @@ const crypto  = require('crypto');
 const multer  = require('multer');
 const logger  = require('../lib/logger');
 const { signWebhookBody, makeLimiters } = require('@matthewdbaldwin/microport-auth');
+const { forwardWithRetry } = require('../lib/forwardWithRetry');
 const { BugReportCrossApp } = require('@matthewdbaldwin/microport-contracts');
 const { requireAuth } = require('../middleware/auth');
 
@@ -130,36 +131,32 @@ router.post('/', requireAuth, fileLimiter, uploadScreenshot, async (req, res) =>
   // the text leg, so the report still lands.
   const forwardMultipart = !!req.file && !!process.env.BUGREPORT_FORWARD_URL;
 
-  let body;
   let headers;
+  let makeBody; // a FACTORY — a stream-consumed body can't be re-sent on retry.
   if (forwardMultipart) {
-    const form = new FormData();
-    form.append('payload', payloadStr);
-    form.append('screenshot', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname || 'screenshot.png');
-    body    = form;
     // NO Content-Type — the global fetch sets the multipart boundary from the FormData.
     headers = { 'X-Correlation-Id': correlationId };
     if (secret) headers['x-bugreport-signature'] = signWebhookBody(secret, payloadStr);
+    makeBody = () => {
+      const form = new FormData();
+      form.append('payload', payloadStr);
+      form.append('screenshot', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname || 'screenshot.png');
+      return form;
+    };
   } else {
     if (req.file) {
       logger.warn({ eventId: payload.eventId }, '[bug-reports] screenshot dropped — forward target is JSON-only');
     }
-    body    = payloadStr;
     headers = { 'Content-Type': 'application/json', 'X-Correlation-Id': correlationId };
     if (secret) headers['x-bugreport-signature'] = signWebhookBody(secret, payloadStr);
+    makeBody = () => payloadStr;
   }
 
   try {
-    const ctrl = new AbortController();
-    const tid  = setTimeout(() => ctrl.abort(), 10_000);
-    let upstream;
-    try {
-      upstream = await fetch(`${base.replace(/\/$/, '')}/api/bug-reports/cross-app`, {
-        method: 'POST', headers, body, signal: ctrl.signal,
-      });
-    } finally {
-      clearTimeout(tid);
-    }
+    // A transient blip (receiver 5xx mid-deploy, or a connection reset) used to
+    // drop the filing; forwardWithRetry retries once. Safe because the payload
+    // carries an eventId the receiver dedups. Timeout still 504s (no retry).
+    const upstream = await forwardWithRetry(`${base.replace(/\/$/, '')}/api/bug-reports/cross-app`, { headers, makeBody, logger });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
       logger.warn({ status: upstream.status, data }, '[bug-reports] cross-app forward rejected');
