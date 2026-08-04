@@ -10,7 +10,7 @@ const db = require('../lib/db');
 const logger = require('../lib/logger');
 const { createVerifier } = require('@matthewdbaldwin/microport-auth');
 // contracts exports `mapRole`; alias to mapContractRole to match the fleet.
-const { SsoClaims, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts');
+const { SsoClaims, ROLE_CONTRACTS, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts');
 
 const COOKIE_NAME = '__APP_SLUG___token';
 const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
@@ -74,6 +74,28 @@ async function requireAuth(req, res, next) {
       if (session.revokedAt)    return res.status(401).json({ error: 'Session has been revoked. Please log in again.', code: 'SESSION_REVOKED' });
       if (session.expiresAt < new Date()) return res.status(401).json({ error: 'Session expired. Please log in again.', code: 'SESSION_EXPIRED' });
       req.sessionId = session.id;
+    }
+
+    // The registration guard is load-bearing, not defensive padding. mapRole
+    // does `ROLE_CONTRACTS[satellite].roleMap[wireRole]` with no optional
+    // chaining, so calling it for an app that is not yet in ROLE_CONTRACTS
+    // throws a TypeError rather than returning null — and RUNBOOK Phase 4
+    // (register "__APP_SLUG__" in microport-contracts) deliberately happens
+    // AFTER the mint. Without this check a freshly minted satellite answers
+    // 500 "Login failed" to every authenticated request during exactly the
+    // window the runbook creates, with the real cause buried in a logged
+    // TypeError about `roleMap`. (Found minting MintPort, 2026-08-03.)
+    const registered = !!ROLE_CONTRACTS?.['__APP_SLUG__'];
+    if (!registered) {
+      logger.error(
+        { app: '__APP_SLUG__' },
+        '[auth] "__APP_SLUG__" is not registered in microport-contracts ROLE_CONTRACTS — ' +
+        'complete RUNBOOK Phase 4 (add it to roles.ts + publish + bump this repo) or no one can sign in.',
+      );
+      return res.status(403).json({
+        error: '__APP_NAME__ is not finished setting up. Ask your admin to complete platform registration.',
+        code:  'APP_NOT_REGISTERED',
+      });
     }
 
     // ONE role map for the whole platform; null = not granted → 403 (not a loop).
