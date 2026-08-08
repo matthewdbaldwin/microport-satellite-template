@@ -11,9 +11,12 @@ const logger = require('../lib/logger');
 const { createVerifier } = require('@matthewdbaldwin/microport-auth');
 // contracts exports `mapRole`; alias to mapContractRole to match the fleet.
 const { SsoClaims, ROLE_CONTRACTS, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts');
+// COOKIE_NAME now lives in lib/cookies.js (the shared createCookieHelpers
+// adapter) so the auth-route login flow and this verifier read the same name
+// off one definition. Value unchanged ('__APP_SLUG___token').
+const { COOKIE_NAME } = require('../lib/cookies');
 
-const COOKIE_NAME = '__APP_SLUG___token';
-const AUDIENCE    = ['__APP_SLUG__', 'microport-apps'];
+const AUDIENCE = ['__APP_SLUG__', 'microport-apps'];
 
 // microport-auth's createVerifier takes `publicKey` (a DECODED PEM), pins RS256
 // + issuer at config time, and requires `audience` to be passed AT THE VERIFY

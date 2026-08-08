@@ -4,7 +4,11 @@
     "signInWithSalesPort": "Sign in with SalesPort",
     "noAccess": "You don't have access to __APP_NAME__. Ask your admin to grant access in SalesPort.",
     "signInFailed": "Sign-in couldn't complete. Please try again, or contact your admin.",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "callbackCompleting": "Completing sign-in…",
+    "callbackBack": "Back to sign-in",
+    "callbackExchangeFailed": "Sign-in couldn't be completed. Please try again.",
+    "callbackNoToken": "No sign-in code was found. Please sign in again."
   },
   "home": {
     "welcome": "Welcome, {name}."

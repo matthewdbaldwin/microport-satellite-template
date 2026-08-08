@@ -71,8 +71,24 @@ jobs:
 
       - name: Deploy to ECS
         run: |
-          aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment \
-            --output json --query "service.{service:serviceName,status:status}" | cat
+          # Re-pin to the LATEST registered task-def revision so a task-def CONFIG change
+          # (env var, Secrets Manager migration) actually gets adopted — the flag-less
+          # --force-new-deployment only ever redeployed the already-pinned revision, silently
+          # stranding config/secrets changes. Requires iam:PassRole on __APP_SLUG__-task-role
+          # for GitHubActionsDeployRole. No `| cat`: the step runs under `bash -e` without
+          # pipefail, so a pipe masks a failed deploy as green; --no-cli-pager avoids the
+          # pager without a pipe. See feedback_ecs_update_service_omits_task_definition.
+          LATEST_TD=$(aws ecs describe-task-definition --task-definition "$ECS_SERVICE" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "Deploying task definition: $LATEST_TD"
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition "$LATEST_TD" \
+            --force-new-deployment \
+            --no-cli-pager \
+            --output json \
+            --query "service.{service:serviceName,taskDefinition:taskDefinition,status:status}"
 
       - name: Wait for ECS rollover
         run: |

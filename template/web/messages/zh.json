@@ -4,7 +4,11 @@
     "signInWithSalesPort": "使用 SalesPort 登录",
     "noAccess": "您没有 __APP_NAME__ 的访问权限。请联系管理员在 SalesPort 中授予访问权限。",
     "signInFailed": "登录未能完成。请重试，或联系您的管理员。",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "callbackCompleting": "正在完成登录…",
+    "callbackBack": "返回登录",
+    "callbackExchangeFailed": "登录未能完成。请重试。",
+    "callbackNoToken": "未找到登录代码。请重新登录。"
   },
   "home": {
     "welcome": "欢迎，{name}。"

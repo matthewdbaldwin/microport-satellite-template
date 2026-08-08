@@ -8,36 +8,24 @@
 // independent brakes stop that:
 //   1. ?sso_err=<code> — the SSO callback redirects here with it on an
 //      access-deny; we render a dead-end instead of redirecting.
-//   2. a sessionStorage attempt counter — even if the error signal is lost
-//      (callback → home → /auth/me 401 → /login with no query), >N redirects
-//      inside a short window trips the brake.
+//   2. a sessionStorage attempt counter (lib/ssoLoopGuard) — even if the error
+//      signal is lost (callback → home → /auth/me 401 → /login with no query),
+//      >N redirects inside a short window trips the brake. It fails CLOSED when
+//      storage is unavailable, which is the Safari "Block all cookies" case
+//      that loops; see lib/ssoLoopGuard.test.ts.
 // The manual "Try again" clears the counter and re-enters SSO once.
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
+import { tripsLoop as trips, clearLoop as clear } from '@/lib/ssoLoopGuard';
 
 const SSO_HREF = '/api/auth/sso/start';
 const LOOP_KEY = '__APP_SLUG___sso_attempts';
-const LOOP_WINDOW_MS = 12_000;
-const LOOP_MAX = 2; // a 3rd redirect inside the window is a loop
 
-function tripsLoop(): boolean {
-  try {
-    const now = Date.now();
-    const hist: number[] = JSON.parse(sessionStorage.getItem(LOOP_KEY) || '[]');
-    const recent = hist.filter((t) => now - t < LOOP_WINDOW_MS);
-    recent.push(now);
-    sessionStorage.setItem(LOOP_KEY, JSON.stringify(recent));
-    return recent.length > LOOP_MAX;
-  } catch {
-    return false;
-  }
-}
-function clearLoop() {
-  try { sessionStorage.removeItem(LOOP_KEY); } catch { /* ignore */ }
-}
+const tripsLoop = () => trips(LOOP_KEY);
+const clearLoop = () => clear(LOOP_KEY);
 
 function LoginInner() {
   const router = useRouter();

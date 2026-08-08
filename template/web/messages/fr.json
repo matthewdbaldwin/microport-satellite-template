@@ -4,7 +4,11 @@
     "signInWithSalesPort": "Se connecter avec SalesPort",
     "noAccess": "Vous n'avez pas accès à __APP_NAME__. Demandez à votre administrateur de vous accorder l'accès dans SalesPort.",
     "signInFailed": "La connexion n'a pas pu aboutir. Veuillez réessayer ou contacter votre administrateur.",
-    "tryAgain": "Réessayer"
+    "tryAgain": "Réessayer",
+    "callbackCompleting": "Finalisation de la connexion…",
+    "callbackBack": "Retour à la connexion",
+    "callbackExchangeFailed": "La connexion n'a pas pu aboutir. Veuillez réessayer.",
+    "callbackNoToken": "Aucun code de connexion trouvé. Veuillez vous reconnecter."
   },
   "home": {
     "welcome": "Bienvenue, {name}."

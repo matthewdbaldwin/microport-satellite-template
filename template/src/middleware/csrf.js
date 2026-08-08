@@ -16,9 +16,10 @@ const { createCsrfGuard } = require('@matthewdbaldwin/microport-auth');
 const csrfGuard = createCsrfGuard({
   headerValue: '__APP_SLUG__-web',
   bootstrapPaths: [
-    // Add exact full paths that authenticate via a one-time code instead of the
-    // session cookie, e.g. '/api/auth/sso/exchange' if this app adds a POST
-    // exchange route. The default GET /sso/callback needs no bypass (safe method).
+    // POST /api/auth/sso/exchange authenticates via the one-time SSO handoff
+    // code itself, not the session cookie (there isn't one yet) — it needs no
+    // X-Requested-With header, or the CSRF guard 403s a legitimate login.
+    '/api/auth/sso/exchange',
   ],
   allowedOrigins: () => {
     const list = (process.env.WEB_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
