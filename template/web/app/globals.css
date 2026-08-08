@@ -149,6 +149,13 @@ layer(base);
   --danger:    var(--red);
   --danger-fg: var(--accent-fg);
   --surface-2: var(--surface2);
+
+  /* Modal-backdrop scrim. Not part of microport-ui's shared theme tokens —
+     each satellite defines it locally (fleet convention, e.g. salesport/
+     opsport/reviewport/execport/clinicport globals.css). Use via the
+     `bg-overlay` Tailwind utility (mapped from --color-overlay in @theme
+     above) instead of ad hoc bg-black/50 or an inline rgba() style. */
+  --overlay: rgba(0, 0, 0, 0.55);
 }
 
 body {

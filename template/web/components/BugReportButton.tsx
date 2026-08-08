@@ -192,7 +192,7 @@ function BugReportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={submitting ? undefined : onClose} />
+      <div className="fixed inset-0 z-50 bg-overlay" onClick={submitting ? undefined : onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
           ref={trapRef}
