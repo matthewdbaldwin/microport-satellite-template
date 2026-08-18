@@ -25,17 +25,21 @@ const logger = require('../lib/logger');
 const { requireAuth } = require('../middleware/auth');
 const { setSessionCookie, clearSessionCookie } = require('../lib/cookies');
 const db = require('../lib/db');
+const { buildAppLauncherApps } = require('@matthewdbaldwin/microport-contracts');
 
 const router = express.Router();
 const WEB       = process.env.WEB_ORIGIN || '';
 const SALESPORT = process.env.SALESPORT_WEB_URL || process.env.SALESPORT_API_URL || '';
+// Login funnels through the hub/portal host (PORTAL_WEB_URL), falling back to
+// the CRM host if the split var isn't set yet. feedback pattern from productport.
+const PORTAL_WEB = process.env.PORTAL_WEB_URL || SALESPORT;
 
 // GET /api/auth/sso/start — browser entry point; redirect to SalesPort login.
 router.get('/sso/start', (req, res) => {
-  if (!SALESPORT) return res.status(503).json({ error: 'SSO not configured on this instance.' });
+  if (!PORTAL_WEB) return res.status(503).json({ error: 'SSO not configured on this instance.' });
   const web = WEB || `${req.protocol}://${req.get('host')}`;
   const returnTo = encodeURIComponent(`${web}/auth/callback`);
-  res.redirect(`${SALESPORT}/login?sso=__APP_SLUG__&returnTo=${returnTo}`);
+  res.redirect(`${PORTAL_WEB}/login?sso=__APP_SLUG__&returnTo=${returnTo}`);
 });
 
 // POST /api/auth/sso/exchange — satellite-side proxy for the one-time-code SSO
@@ -87,5 +91,81 @@ router.post('/logout', requireAuth, async (req, res) => {
 });
 
 router.get('/me', requireAuth, (req, res) => res.json(req.user));
+
+// PATCH /api/auth/me/theme — fire-and-forget relay to the IdP, which OWNS the
+// theme. This app deliberately has no local `theme` column: the IdP persists
+// the pick and stamps it into the SSO token's `theme` claim, and requireAuth
+// reads it back from that claim (middleware/auth.js) — never from our table. A
+// local column would be written and never read, so this needs no migration.
+// Free-form ≤64 chars by design, so each app validates against its own ThemeId
+// union; null clears.
+//
+// Satellites relay over the /api/service channel (per-satellite
+// THEME_SERVICE_KEY, constant-time compare, fail-closed) rather than
+// forwarding the caller's bearer/cookie token upstream. Inert (skip + warn)
+// until IDP_API_URL + THEME_SERVICE_KEY are provisioned.
+router.patch('/me/theme', requireAuth, async (req, res) => {
+  const { theme } = req.body || {};
+  if (theme !== null && (typeof theme !== 'string' || theme.length === 0 || theme.length > 64)) {
+    return res.status(400).json({ error: 'theme must be a non-empty string ≤ 64 chars, or null to clear.' });
+  }
+
+  const idpApi     = process.env.IDP_API_URL || '';
+  const serviceKey = process.env.THEME_SERVICE_KEY || '';
+  if (!idpApi || !serviceKey) {
+    logger.warn('IDP_API_URL/THEME_SERVICE_KEY not configured — theme write skipped');
+    return res.json({ ok: true });
+  }
+
+  // Fire-and-forget: a failed upstream write must never surface to the user,
+  // whose local cache still wins the session. But it MUST be visible to us —
+  // checking only `.catch` is what made the original bug invisible, since fetch
+  // resolves (not rejects) on a 4xx.
+  fetch(`${idpApi.replace(/\/$/, '')}/api/service/users/theme`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-Theme-Service-Key': serviceKey },
+    body:    JSON.stringify({ email: req.user.email, theme: theme ?? null }),
+  })
+    .then(r => {
+      if (!r.ok) logger.error({ status: r.status, idpApi }, 'IdP theme write rejected');
+    })
+    .catch(err => logger.error({ err: err.message, idpApi }, 'IdP theme write failed'));
+
+  res.json({ ok: true });
+});
+
+// GET /api/auth/role-catalog — public catalog of this satellite's roles.
+// SalesPort's People & Access aggregator pulls this to build the role picker.
+// __PRIMARY_ROLE__ is the universal default (every employee has it); the
+// others are the explicit grants an admin assigns. Keep in sync with the
+// Role enum in prisma/schema.prisma and with the ROLE_CONTRACTS entry
+// added in RUNBOOK Phase 4.
+router.get('/role-catalog', (_req, res) => {
+  res.json({
+    satellite: '__APP_SLUG__',
+    roles: [
+      { key: '__PRIMARY_ROLE__', label: 'Primary role', description: 'Default role. Every employee has this by default — no grant needed.' },
+      { key: 'admin',            label: 'Admin',         description: 'Full __APP_NAME__ administrator. Manages data + access.' },
+      { key: 'superuser',        label: 'Superuser',      description: 'Platform-wide override. Grant sparingly.' },
+    ],
+  });
+});
+
+// GET /api/auth/app-launcher — public list of sibling MicroPort apps this
+// deployment can link to (only those whose *_WEB_URL env is set). Surfaced in
+// the AppSwitcher. URLs are safe to reveal publicly. The host app is excluded
+// from its own list. The directory + filter/map logic is shared via
+// microport-contracts (SATELLITE_DIRECTORY / buildAppLauncherApps) instead of
+// a hand-copied array — every satellite used to hand-copy this array locally,
+// and it drifted silently twice in prod on 2026-08-14.
+router.get('/app-launcher', (_req, res) => {
+  const apps = buildAppLauncherApps('__APP_SLUG__', (entry) => process.env[entry.envVar]);
+  // The "Company portal" target in the app switcher lives on the hub host, not
+  // the SalesPort CRM host. Echo PORTAL_WEB_URL so the switcher stops deriving
+  // it from the SalesPort tile (→ CRM/portal). Null when unset → the switcher
+  // keeps its legacy CRM-derived fallback.
+  const portalUrl = (process.env.PORTAL_WEB_URL || '').split(',')[0].trim() || null;
+  res.json({ apps, portalUrl });
+});
 
 module.exports = router;

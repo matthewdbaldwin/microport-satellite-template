@@ -44,6 +44,7 @@ that explains *why*.
 - ✓ **SSO callback loop guard** — callback redirects to `/login?sso_err=<code>` on role-deny; login honors `?sso_err` + a sessionStorage attempt-counter and dead-ends instead of re-looping. → `feedback_sso_callback_loop_trap`
 - ✓ Proxy 401 cascade scoped to `/auth/me` only. → `feedback_proxy_401_cascade`
 - ✓ SsoClaims via the microport-auth verifier (`claimsMode`, env `SSO_CLAIMS_MODE`).
+- ✓ **`GET /api/auth/role-catalog`** (SalesPort's People & Access aggregator reads this to build the role picker) + **`GET /api/auth/app-launcher`** (feeds the `SatelliteAppSwitcher`; built from the shared `SATELLITE_DIRECTORY`/`buildAppLauncherApps` in `microport-contracts`, not a hand-copied array — that array drifted silently in prod twice on 2026-08-14). `/sso/start` funnels through **`PORTAL_WEB_URL`**, falling back to `SALESPORT_WEB_URL`.
 
 ## Phase 5 — Webhook channels  *(stamped)*
 - ✓ Canonical `WEBHOOK_SECRET_<FROM>_<TO>` (**UPPERCASE** app names — `bugReports.js` builds the env name via `'__APP_SLUG__'.toUpperCase()`); receiver **verifies signature BEFORE ack**; **2xx for data-level errors, 5xx transient only** (else the outbox retries forever). → `feedback_data_level_errors_must_return_2xx`
