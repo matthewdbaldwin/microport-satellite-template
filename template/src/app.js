@@ -8,7 +8,7 @@ const cookieParser = require('cookie-parser');
 const logger       = require('./lib/logger');
 const { errorHandler, correlationReqId } = require('@matthewdbaldwin/microport-auth');
 const { csrfGuard } = require('./middleware/csrf');
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, withFreshAccessToken } = require('./middleware/auth');
 
 const app = express();
 app.disable('x-powered-by');
@@ -58,6 +58,7 @@ app.get('/api/health', health);
 // CSRF guard on /api, with BOOTSTRAP_PATHS bypassing signature-authed ingress
 // (webhooks/lifecycle verify their own HMAC). feedback_csrf_bootstrap_allowlist_drift.
 app.use('/api', csrfGuard);
+app.use('/api', withFreshAccessToken);
 
 // ── Unauthenticated, signature-authed ingress FIRST ──────────────────────────
 // Mounted BEFORE the bare-/api requireAuth routers so requireAuth doesn't 401

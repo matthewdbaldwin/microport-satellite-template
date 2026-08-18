@@ -8,13 +8,14 @@
 'use strict';
 const db = require('../lib/db');
 const logger = require('../lib/logger');
-const { createVerifier } = require('@matthewdbaldwin/microport-auth');
+const { createVerifier, createWithFreshAccessToken } = require('@matthewdbaldwin/microport-auth');
 // contracts exports `mapRole`; alias to mapContractRole to match the fleet.
 const { SsoClaims, ROLE_CONTRACTS, mapRole: mapContractRole } = require('@matthewdbaldwin/microport-contracts');
 // COOKIE_NAME now lives in lib/cookies.js (the shared createCookieHelpers
 // adapter) so the auth-route login flow and this verifier read the same name
 // off one definition. Value unchanged ('__APP_SLUG___token').
-const { COOKIE_NAME } = require('../lib/cookies');
+const { COOKIE_NAME, REFRESH_COOKIE_NAME, setSessionCookie, setRefreshCookie, clearRefreshCookie } = require('../lib/cookies');
+const { refreshFromHub } = require('../lib/refreshClient');
 
 const AUDIENCE = ['__APP_SLUG__', 'microport-apps'];
 
@@ -51,6 +52,35 @@ const verify = createVerifier({
   // bake clean, then 'enforce'. Break-glass: SSO_CLAIMS_MODE=warn (or off).
   claimsMode:   process.env.SSO_CLAIMS_MODE || 'enforce',
   logger,
+});
+
+// Opportunistic near-expiry refresh, mounted ahead of every requireAuth
+// call (app.js). This app's existing `verify` already has the exact call
+// shape createWithFreshAccessToken needs — verify(token, {audience,
+// ignoreExpiration}) — so it passes straight through, no adapter needed.
+// INERT until __APP_SLUG___REFRESH_ENABLED=true AND the IdP mints a
+// refresh token on exchange (src/routes/auth.js's X-Satellite-Refresh
+// opt-in header).
+const withFreshAccessToken = createWithFreshAccessToken({
+  verify,
+  audience:     AUDIENCE,
+  isEnabled:    () => process.env.__APP_SLUG___REFRESH_ENABLED === 'true',
+  thresholdSec: 120,
+  getRefreshToken: (req) => req.cookies?.[REFRESH_COOKIE_NAME] || null,
+  getAccessToken:  (req) => req.cookies?.[COOKIE_NAME] || null, // cookie-only; no Bearer path
+  refresh: (rawRefresh, req) => refreshFromHub(rawRefresh, req.log),
+  onRefreshed: (req, res, pair) => {
+    const refreshRemainMs = Date.parse(pair.refreshTokenExpiresAt) - Date.now();
+    setSessionCookie(res, pair.accessToken,
+      Number.isFinite(refreshRemainMs) && refreshRemainMs > 0 ? refreshRemainMs : undefined);
+    setRefreshCookie(res, pair.refreshToken);
+    // Same-request visibility: requireAuth reads req.cookies[COOKIE_NAME] as
+    // its ONLY token source, so a direct mutation is sufficient — no extra
+    // req field or header rewrite needed. A Set-Cookie response header can't
+    // retroactively change what THIS request's own req.cookies object holds.
+    req.cookies[COOKIE_NAME] = pair.accessToken;
+  },
+  onRefreshFailed: (_req, res) => clearRefreshCookie(res),
 });
 
 async function requireAuth(req, res, next) {
@@ -144,4 +174,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole, COOKIE_NAME, AUDIENCE };
+module.exports = { requireAuth, requireRole, COOKIE_NAME, AUDIENCE, withFreshAccessToken };

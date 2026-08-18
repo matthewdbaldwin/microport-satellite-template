@@ -23,7 +23,8 @@
 const express = require('express');
 const logger = require('../lib/logger');
 const { requireAuth } = require('../middleware/auth');
-const { setSessionCookie, clearSessionCookie } = require('../lib/cookies');
+const { setSessionCookie, clearSessionCookie, REFRESH_COOKIE_NAME, setRefreshCookie, clearRefreshCookie } = require('../lib/cookies');
+const { revokeUpstreamRefresh } = require('../lib/refreshClient');
 const db = require('../lib/db');
 const { buildAppLauncherApps } = require('@matthewdbaldwin/microport-contracts');
 
@@ -50,6 +51,13 @@ router.get('/sso/start', (req, res) => {
 // verbatim to the browser. On success we also set the HttpOnly session cookie
 // BEFORE returning, so the cookie-authed path is live the moment the client
 // sees a 2xx. No requireAuth — the code itself is the credential.
+//
+// REFRESH OPT-IN: when __APP_SLUG___REFRESH_ENABLED is true, sends
+// X-Satellite-Refresh: 1 so the IdP mints an (access, refresh) pair instead
+// of the legacy single token. When a pair comes back, the refresh cookie is
+// set and the raw refresh token/expiry are stripped from the forwarded JSON
+// body before it reaches the browser — the cookie is its only carrier; it
+// has no business in JS.
 router.post('/sso/exchange', async (req, res, next) => {
   try {
     // SSO exchange target — split off the overloaded SALESPORT_API_URL so the
@@ -63,9 +71,13 @@ router.post('/sso/exchange', async (req, res, next) => {
 
     const { code } = req.body || {};
 
+    const refreshEnabled = process.env.__APP_SLUG___REFRESH_ENABLED === 'true';
+    const upstreamHeaders = { 'Content-Type': 'application/json', 'X-Correlation-Id': req.id };
+    if (refreshEnabled) upstreamHeaders['X-Satellite-Refresh'] = '1';
+
     const upstream = await fetch(`${idpApi.replace(/\/$/, '')}/api/auth/handoff/exchange`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Correlation-Id': req.id },
+      headers: upstreamHeaders,
       body:    JSON.stringify({ code }),
       // Bound the IdP call — this is the login critical path; a hung hub must
       // fail the exchange fast (→ error handler), never hang the request.
@@ -75,18 +87,40 @@ router.post('/sso/exchange', async (req, res, next) => {
     const payload = await upstream.json().catch(() => ({}));
 
     if (upstream.ok && payload.token) {
-      setSessionCookie(res, payload.token);
+      if (refreshEnabled && payload.refreshToken) {
+        const refreshRemainMs = Date.parse(payload.refreshTokenExpiresAt) - Date.now();
+        setSessionCookie(res, payload.token,
+          Number.isFinite(refreshRemainMs) && refreshRemainMs > 0 ? refreshRemainMs : undefined);
+        setRefreshCookie(res, payload.refreshToken);
+      } else {
+        setSessionCookie(res, payload.token);
+      }
     } else {
       logger.warn({ status: upstream.status, code: payload && payload.code }, '[sso] handoff exchange denied');
     }
+
+    // Strip unconditionally — regardless of which branch above ran — so a
+    // malformed/edge IdP response (refreshToken present alongside a missing
+    // token or a non-2xx status) can never ship the raw refresh token to the
+    // browser. The refresh cookie (set above, only when a pair was minted)
+    // is its only legitimate carrier.
+    delete payload.refreshToken;
+    delete payload.refreshTokenExpiresAt;
 
     return res.status(upstream.status).json(payload);
   } catch (err) { next(err); }
 });
 
+// POST /api/auth/logout — clear the cookie + revoke the local Session row +
+// best-effort revoke the upstream refresh token (if any).
 router.post('/logout', requireAuth, async (req, res) => {
   if (req.sessionId) await db.session.update({ where: { id: req.sessionId }, data: { revokedAt: new Date() } }).catch(() => {});
+  // Upstream refresh-token revoke is fire-and-forget: a captured refresh
+  // token must not outlive logout, but an IdP outage must not block it.
+  const rawRefresh = req.cookies?.[REFRESH_COOKIE_NAME];
+  if (rawRefresh) revokeUpstreamRefresh(rawRefresh, req.log, req.id).catch(() => {});
   clearSessionCookie(res);
+  clearRefreshCookie(res);
   res.json({ ok: true });
 });
 
