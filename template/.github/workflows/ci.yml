@@ -26,6 +26,10 @@ jobs:
       - run: npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Prisma 7 does NOT generate the client on install, so jest can't resolve
+      # `.prisma/client/default` and every suite in the app's require graph errors
+      # at load. The Dockerfile runs the same step before startup; CI must too.
+      - run: npx prisma generate
       # Rate limiters skip ONLY when CI=true. feedback_rate_limiter_dev_skip.
       - run: CI=true npm test
         env:
