@@ -2,11 +2,14 @@
 // and breaks the production build. feedback_next_config_ts_prod.
 const createNextIntlPlugin = require('next-intl/plugin');
 const { withSentryConfig } = require('@sentry/nextjs');
+const { version } = require('./package.json');
 const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: true,
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   async rewrites() {
     // Proxy /api → the __APP_NAME__ API so the web app stays same-origin.
     return [{ source: '/api/:path*', destination: `${process.env.API_ORIGIN || 'http://localhost:4100'}/api/:path*` }];
@@ -22,9 +25,12 @@ module.exports = withSentryConfig(withNextIntl(nextConfig), {
   org:               process.env.SENTRY_ORG     || 'microport-c0',
   project:           process.env.SENTRY_PROJECT || '__APP_SLUG__-web',
   authToken:         process.env.SENTRY_AUTH_TOKEN,
-  silent:            !process.env.CI,
+  silent:            false,
   widenClientFileUpload: true,
   tunnelRoute:       '/monitoring',
+  sourcemaps: {
+    filesToDeleteAfterUpload: ['.next/static/**/*.map'],
+  },
   webpack: {
     treeshake: { removeDebugLogging: true },
   },
