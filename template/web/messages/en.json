@@ -45,5 +45,17 @@
     "errorDetail": "A description is required.",
     "errorScreenshotTooLarge": "Screenshot must be 2 MB or smaller.",
     "errorSend": "Could not send your report. Please try again."
+  },
+  "helpContent": {
+    "home": {
+      "default": {
+        "summary": "Your __APP_NAME__ home. What you can see and do here depends on the role your admin granted you.",
+        "bullets": [
+          "Look for ? buttons around the app for quick, in-place guidance.",
+          "Open the Help library for full articles on signing in and your role.",
+          "Missing something you expect? Ask your admin to check your access."
+        ]
+      }
+    }
   }
 }

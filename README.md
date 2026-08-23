@@ -35,6 +35,27 @@ Then work through the **manual** steps the generator prints (and
 | SSO-spoke wiring + hub-first bug-report forward (`BUGREPORT_FORWARD_URL`) | **Register the mint at HubPort** (SSO_APPS / KNOWN_SATELLITES / HANDOFF_APPS / channel secret) — RUNBOOK Phase 5b |
 | Theme (server-safe), tri-locale, BugReportButton, AppSwitcher, login `?sso_err` guard | The business **schema / routes / pages** |
 | CI/Deploy workflows, role-contract + webhook tests, Playwright smoke | **AWS** provisioning (ECR/ECS/ALB/RDS/secrets/OIDC) |
+| Help Library: `/help` route (search + ⌘K palette), HelpButton wrapper, tri-locale article scaffold, coverage test | Write the **real articles + popovers** per screen |
+
+## Help Library
+
+The mint ships the fleet's help architecture wired end-to-end (engine from
+`microport-ui`'s `help` / `help/logic` / `help/fuzzy` subpaths; EngagePort is
+the reference implementation): `web/lib/help/` (section registry, tri-locale
+content modules, chrome i18n, search glue), `web/components/ui/HelpButton.tsx`
+(popovers from `messages/<locale>.json#helpContent`, deep-linking into
+`/help`), and the full-screen `/help` route (role-gated sidebar nav,
+search-first index with fuzzy fallback, article/stub dynamic page).
+
+To add a topic: register the slug in `lib/help/sections.ts`, drop
+`lib/help/content/<slug>.ts` (+ `.zh` / `.fr`) and register all three in
+`content/index.ts`; for a popover, add `helpContent.<key>` to all three
+messages files and map the key in `lib/help/popoverRoutes.ts`.
+`lib/help/coverage.test.ts` fails CI on any gap — a dangling helpKey or a
+live item with no article otherwise HIDES silently (audit P0-5, the fleet's
+worst help failure). `lib/help/searchMiss.ts` is a documented no-op; wire a
+real sink (EngagePort's HelpSearchMiss pattern) when the app wants
+miss-driven authoring.
 
 ## Placeholders
 

@@ -33,6 +33,8 @@ const gettingStarted: HelpArticleContent = {
       ],
     },
   ],
+  // No sibling articles yet — populate as the library grows (render-time gated).
+  related: [],
 };
 
 export default gettingStarted;

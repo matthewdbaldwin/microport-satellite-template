@@ -45,5 +45,17 @@
     "errorDetail": "La description est requise.",
     "errorScreenshotTooLarge": "La capture doit faire 2 Mo ou moins.",
     "errorSend": "Échec de l'envoi. Veuillez réessayer."
+  },
+  "helpContent": {
+    "home": {
+      "default": {
+        "summary": "Votre accueil __APP_NAME__. Ce que vous pouvez voir et faire ici dépend du rôle que votre administrateur vous a attribué.",
+        "bullets": [
+          "Repérez les boutons ? dans l'application pour une aide contextuelle immédiate.",
+          "Ouvrez le centre d'aide pour des articles complets sur la connexion et votre rôle.",
+          "Il vous manque quelque chose ? Demandez à votre administrateur de vérifier vos accès."
+        ]
+      }
+    }
   }
 }
