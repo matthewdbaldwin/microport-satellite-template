@@ -4,10 +4,19 @@ Ordered so each phase's prerequisites are already done. The generator stamps the
 files; the **☐ MANUAL** items you do yourself. Every step links the footgun memory
 that explains *why*.
 
-> Ship rule (all phases): commit straight to `develop` (no PRs for solo work);
-> `main` is urgent-only; version bumps on `develop`, **surgical** (never
-> `npm install` — it re-resolves the lockfile). Commit from the clean ext4
-> clone, never `git add -A` on the NTFS mirror.
+> Ship rule for the **minted satellite** (all phases): commit straight to
+> `develop` (no PRs for solo work); `main` is urgent-only; version bumps on
+> `develop`, **surgical** (never `npm install` — it re-resolves the lockfile).
+> Commit from the clean ext4 clone, never `git add -A` on the NTFS mirror.
+>
+> ⚠ **THIS repo is the exception: the template ships from `main`, and only
+> `main`.** There is no `develop` here — it existed, forked on 2026-06-30, drifted
+> 24 commits behind while every real change landed on `main`, and was deleted on
+> 2026-08-23 (last tip `3131e85`, fully superseded — verified hunk by hunk before
+> removal). Applying the satellite rule above to the template itself is the trap
+> it is written to prevent: a mint from that fork would have produced a satellite
+> with no Help Library, no `security-audit.yml`, and no lockfiles. If a `develop`
+> ever reappears here, it is a mistake — delete it rather than merging it.
 
 ---
 
