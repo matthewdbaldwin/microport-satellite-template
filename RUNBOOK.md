@@ -10,13 +10,19 @@ that explains *why*.
 > Commit from the clean ext4 clone, never `git add -A` on the NTFS mirror.
 >
 > ⚠ **THIS repo is the exception: the template ships from `main`, and only
-> `main`.** There is no `develop` here — it existed, forked on 2026-06-30, drifted
-> 24 commits behind while every real change landed on `main`, and was deleted on
-> 2026-08-23 (last tip `3131e85`, fully superseded — verified hunk by hunk before
-> removal). Applying the satellite rule above to the template itself is the trap
-> it is written to prevent: a mint from that fork would have produced a satellite
-> with no Help Library, no `security-audit.yml`, and no lockfiles. If a `develop`
-> ever reappears here, it is a mistake — delete it rather than merging it.
+> `main`.** The reason is not a preference — **this repo is a generator and
+> deploys nowhere.** A `develop` branch exists in a satellite to feed a dev
+> environment ahead of prod; there is no dev environment here, so the branch has
+> nothing to be ahead *of* and buys only drift.
+>
+> There was one anyway. It forked on 2026-06-30, took a single commit
+> (`3131e85`, 2026-08-03) and then sat while 24 commits of real work landed on
+> `main` — a `develop..main` diff of **-24,176 lines**. A mint from that fork
+> produces a satellite with no Help Library, no `security-audit.yml` and no
+> lockfiles, and nothing signals anything is wrong. Deleted 2026-08-23, after
+> verifying hunk by hunk that `3131e85` is fully superseded by `main`.
+>
+> If a `develop` ever reappears here, it is a mistake — delete it, don't merge it.
 
 ---
 
