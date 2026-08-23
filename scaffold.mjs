@@ -61,10 +61,15 @@ if (existsSync(targetDir) && !dry) {
 }
 
 // ── Walk + stamp ─────────────────────────────────────────────────────────────
+// Never stamp build/install artifacts: a template tree that has had `npm ci` or
+// `next build` run inside it (e.g. during a driftwatch verification) must still
+// mint clean. Symlinks inside node_modules also crash the utf8 read (EISDIR).
+const SKIP = new Set(['node_modules', '.next', '.git', 'next-env.d.ts', 'tsconfig.tsbuildinfo', '.DS_Store']);
 let written = 0;
 async function walk(srcDir, destDir) {
   const entries = await readdir(srcDir, { withFileTypes: true });
   for (const e of entries) {
+    if (SKIP.has(e.name)) continue;
     const src = path.join(srcDir, e.name);
     const dest = path.join(destDir, applyTokens(e.name));
     if (e.isDirectory()) {
