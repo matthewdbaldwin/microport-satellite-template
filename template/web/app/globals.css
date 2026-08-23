@@ -150,6 +150,23 @@ layer(base);
   --danger-fg: var(--accent-fg);
   --surface-2: var(--surface2);
 
+  /* SOLID destructive fill — a red that stays AA under WHITE text. Deliberately
+     NOT var(--red)/--danger: the per-theme palette red is tuned to be legible AS
+     TEXT on that theme's surface, which pulls it bright, and bright red under
+     white text measures 3.85:1 (#ff144b) / 3.41:1 (#ff4060) against the 4.5:1
+     floor. The frozen --status-danger is the opposite trade — 4.83:1 under white
+     — so fills use it and text keeps --danger. Repointing --danger itself would
+     regress the dark themes, where #dc2626 as TEXT drops to 4.02 (night) / 3.35
+     (graphite). Two roles, two tokens; don't collapse them.
+
+     A MINT INHERITS WHATEVER IS HERE. FinPort was minted before this pair
+     existed and shipped without it (found 2026-08-23) — it was the fleet's only
+     satellite missing it, because the template was the only place still missing
+     it. Any destructive control a satellite grows must use --danger-fill, never
+     --danger, for its background. (Fleet standard 2026-08-21.) */
+  --danger-fill:    var(--status-danger, #dc2626);
+  --danger-fill-fg: #ffffff;
+
   /* Modal-backdrop scrim. Not part of microport-ui's shared theme tokens —
      each satellite defines it locally (fleet convention, e.g. salesport/
      opsport/reviewport/execport/clinicport globals.css). Use via the
