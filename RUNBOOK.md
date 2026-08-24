@@ -100,6 +100,12 @@ HubPort is the fleet IdP + launcher + central bug queue since the 2026-07-11 cut
 
 ## Phase 8 — CI/CD  *(workflows stamped)*
 - ✓ `deploy.yml` (main→prod) + `deploy-dev.yml` (develop→dev) + `security-audit.yml` (weekly npm-audit → deduped `security-alert` issue); ☐ MANUAL: create the OIDC role.
+- ☐ **MANUAL: read the new repo's OIDC subject claim BEFORE writing the trust entry — do NOT assume the fleet pattern.** GitHub gives newly-created repos an *immutable subject claim* whose prefix embeds numeric owner/repo IDs. Check it:
+  ```
+  gh api /repos/matthewdbaldwin/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix
+  ```
+  The 8 established satellites return `repo:matthewdbaldwin/<name>`; **finport returned `repo:matthewdbaldwin@47402880/finport@1343417570`**. Whatever that command prints is the prefix your `GitHubActionsDeployRole` `StringLike` entry must use, suffixed `:ref:refs/heads/*`. ⚠ `use_immutable_subject` can read **`false`** while the prefix carries the IDs anyway — trust the *prefix string*, not the boolean. Add the ID-based entry **and** keep a name-based one: GitHub is mid-rollout, and two repo-scoped entries cost nothing. Getting this wrong fails as `Not authorized to perform sts:AssumeRoleWithWebIdentity` retried 12× — **identical to a missing trust entry**, so a policy readback showing the name-based line actively argues you already fixed it. Cost the last mint 6 red deploys and a wrong root-cause memo. → `bugfix_finport_dev_deploy_never_worked_2026-08-23`, `reference_footgun_index`
+- ☐ **MANUAL: confirm `API_URL` in BOTH `deploy.yml` and `deploy-dev.yml` names THIS app's API port.** The web container reaches the API over `localhost` inside the task, so a mis-substituted placeholder points the web build at another satellite's port and nothing catches it — finport shipped with `4100` (EngagePort's) against its own `4005` in both workflows, latent because the deploy had never once run. Cross-check against `src/server.js`'s `PORT` default.
 - ✓ **Prod deploy is CI-GATED** — `deploy.yml` triggers on `workflow_run` of "CI" and only proceeds when `conclusion == 'success'`, so a red CI blocks the prod ECS rollout (it deploys the CI-validated `head_sha`, not just the branch tip). Still confirm green via GHA after a ship. → `feedback_deploy_does_not_gate_on_ci`, `feedback_ecs_gha_stale_image`
 - ✓ Rate limiters skip **only** `CI=true` → run `CI=true npx jest` locally. → `feedback_rate_limiter_dev_skip`
 - ✓ Playwright smoke (BASE_URL suppresses webServer; port 3001 collision). → `feedback_playwright_railway`
