@@ -32,7 +32,13 @@ export default function Page() {
         // #token= path (data undefined) skips it.
         try { if (data) reconcileThemeWithUser(data.user?.theme ?? null); } catch { /* storage blocked */ }
       }}
-      onSuccess={() => router.replace('/')}
+      // FULL navigation, not router.replace: the root-layout AuthProvider
+      // already ran its one-shot /auth/me probe when this page loaded — before
+      // the exchange set the cookie — so its `user` is still null. A client-side
+      // replace keeps that stale null, the home page bounces straight back to
+      // /login, and each bounce burns a loop-brake count (LOOP_MAX=2). A real
+      // navigation remounts the provider, which re-probes WITH the fresh cookie.
+      onSuccess={() => window.location.replace('/')}
       onBack={() => router.push('/')}
       messages={{
         completing:     t('callbackCompleting'),
