@@ -34,5 +34,11 @@
     "jest": "^29.7.0",
     "supertest": "^7.0.0"
   },
-  "//deps-note": "prisma CLI lives in dependencies on purpose — runtime does npm ci --omit=dev then npx prisma migrate deploy. feedback_prisma_cli_stays_in_dependencies. NO file: self-deps here — feedback_develop_to_main_bump_breaks_web_lockfile."
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "fast-uri": "^4.1.4",
+    "mysql2": "^3.24.3"
+  },
+  "//deps-note": "prisma CLI lives in dependencies on purpose — runtime does npm ci --omit=dev then npx prisma migrate deploy. feedback_prisma_cli_stays_in_dependencies. NO file: self-deps here — feedback_develop_to_main_bump_breaks_web_lockfile.",
+  "//overrides-note": "Forces patched versions of 3 High-severity CVEs nested under the prisma CLI's own dependency tree (deepmerge-ts stack-exhaustion DoS via @prisma/config, mysql2 auth-downgrade + decompression-bomb DoS, fast-uri SSRF/host-confusion via ajv/@prisma/streams-local). None are ever exercised at runtime (Postgres-only, no MySQL, no Prisma streams) — prisma itself has no stable release yet that bumps them (latest GA is 7.9.1; the fix lands in 8.0.0, still an RC as of 2026-09-03). Every new satellite minted from this template inherits the fix on day one. feedback_prisma_transitive_cve_overrides."
 }
