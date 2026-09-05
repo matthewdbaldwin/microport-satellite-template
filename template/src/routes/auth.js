@@ -30,7 +30,7 @@ const { buildAppLauncherApps } = require('@matthewdbaldwin/microport-contracts')
 
 const router = express.Router();
 const WEB       = process.env.WEB_ORIGIN || '';
-const SALESPORT = process.env.SALESPORT_WEB_URL || process.env.SALESPORT_API_URL || '';
+const SALESPORT = process.env.SALESPORT_WEB_URL || '';
 // Login funnels through the hub/portal host (PORTAL_WEB_URL), falling back to
 // the CRM host if the split var isn't set yet. feedback pattern from productport.
 const PORTAL_WEB = process.env.PORTAL_WEB_URL || SALESPORT;
@@ -62,9 +62,12 @@ router.post('/sso/exchange', async (req, res, next) => {
   try {
     // SSO exchange target — split off the overloaded SALESPORT_API_URL so the
     // IdP can be repointed (HubPort) without disturbing SALESPORT_API_URL's
-    // other uses (theme-write, profile proxy, etc.). Unset ⇒ identical to
-    // SALESPORT_API_URL.
-    const idpApi = process.env.IDP_API_URL || process.env.SALESPORT_API_URL;
+    // other uses (theme-write, profile proxy, etc.).
+    // Slice 5a (2026-08-31): SalesPort's IdP endpoints are deleted, so a
+    // `|| process.env.SALESPORT_API_URL` fallback could only ever resolve to
+    // routes that no longer exist. Required — unset 503s below instead of
+    // silently relaying to a dead endpoint.
+    const idpApi = process.env.IDP_API_URL;
     if (!idpApi) {
       return res.status(503).json({ error: 'SSO not configured on this instance.' });
     }
