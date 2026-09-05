@@ -125,5 +125,6 @@ HubPort is the fleet IdP + launcher + central bug queue since the 2026-07-11 cut
 
 ### Seeded tests (Phase 9 wants these green on day one)
 - `tests/roleContract.test.js` — golden-lock: role drift → red test, not a prod 403.
+- `tests/seed-guard.test.js` — `prisma/seed.js` refuses production DATABASE_URLs (local / *-dev / *_dev,*_test,*_local only; `SEED_ALLOW_PROD=1` overrides). → hubport#134
 - `tests/webhook-signature.test.js` — valid 2xx / tampered 401 / data-error 2xx.
 - `e2e/smoke.spec.ts` — login → portal, using the testId convention. → `reference_testid_naming_convention`
