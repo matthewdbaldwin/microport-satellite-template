@@ -116,15 +116,22 @@ router.post('/sso/exchange', async (req, res, next) => {
 
 // POST /api/auth/logout — clear the cookie + revoke the local Session row +
 // best-effort revoke the upstream refresh token (if any).
-router.post('/logout', requireAuth, async (req, res) => {
-  if (req.sessionId) await db.session.update({ where: { id: req.sessionId }, data: { revokedAt: new Date() } }).catch(() => {});
-  // Upstream refresh-token revoke is fire-and-forget: a captured refresh
-  // token must not outlive logout, but an IdP outage must not block it.
-  const rawRefresh = req.cookies?.[REFRESH_COOKIE_NAME];
-  if (rawRefresh) revokeUpstreamRefresh(rawRefresh, req.log, req.id).catch(() => {});
-  clearSessionCookie(res);
-  clearRefreshCookie(res);
-  res.json({ ok: true });
+router.post('/logout', requireAuth, async (req, res, next) => {
+  try {
+    // Revoke the Session row server-side (a cleared cookie alone lets a stolen
+    // cookie replay outlive the logout). Do NOT swallow: a failed revoke means
+    // the session is still live, so surface it (mirrors productport/engageport).
+    if (req.sessionId) {
+      await db.session.update({ where: { id: req.sessionId }, data: { revokedAt: new Date() } });
+    }
+    // Upstream refresh-token revoke is fire-and-forget: a captured refresh
+    // token must not outlive logout, but an IdP outage must not block it.
+    const rawRefresh = req.cookies?.[REFRESH_COOKIE_NAME];
+    if (rawRefresh) revokeUpstreamRefresh(rawRefresh, req.log, req.id).catch(() => {});
+    clearSessionCookie(res);
+    clearRefreshCookie(res);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
 
 router.get('/me', requireAuth, (req, res) => res.json(req.user));
