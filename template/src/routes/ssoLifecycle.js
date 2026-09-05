@@ -56,34 +56,67 @@ router.post('/event', lifecycleGuard, async (req, res) => {
   const normEmail = email.toLowerCase().trim();
 
   // Idempotency: salesport's outbox retries carry X-Lifecycle-Event-Id (its
-  // LifecycleOutbox.id). A repeat delivery collides on senderEventId → short-circuit.
+  // LifecycleOutbox.id). A repeat delivery collides on senderEventId — but the
+  // row's EXISTENCE is not proof the event was applied. Only short-circuit when
+  // the prior delivery actually FINISHED (processedAt set). A row with
+  // processedAt still null means a prior attempt threw mid-processing (the 500
+  // path below) or the process died between the audit write and processing; the
+  // retry must reuse that row and re-run processing rather than be dropped as a
+  // false-positive dedup. Dropping it is how a revoked user keeps access.
+  // Matches execport/salesport/clinicport/productport/opsport.
   const senderEventId = req.get('X-Lifecycle-Event-Id') || null;
+  let existingEvent = null;
   if (senderEventId) {
-    const dup = await db.userLifecycleEvent
-      .findUnique({ where: { senderEventId }, select: { id: true } })
+    existingEvent = await db.userLifecycleEvent
+      .findUnique({ where: { senderEventId }, select: { id: true, processedAt: true } })
       .catch(() => null);
-    if (dup) return res.json({ ok: true, eventId: dup.id, deduplicated: true });
+    if (existingEvent && existingEvent.processedAt) {
+      return res.json({ ok: true, eventId: existingEvent.id, deduplicated: true });
+    }
   }
 
   // Log first — the audit row must exist even if the local user doesn't. A
   // failed write is the one case we 5xx (transient) so the event is redelivered.
   let eventRow;
-  try {
-    eventRow = await db.userLifecycleEvent.create({
-      data: {
-        senderEventId, email: normEmail, kind,
-        prevRole: prevRole ?? null, newRole: newRole ?? null,
-        actorEmail: actorEmail ?? null, actorRole: actorRole ?? null,
-        payload,
-      },
-    });
-  } catch (err) {
-    logger.error({ err: err.message, correlationId, email: normEmail, kind },
-      '[sso-lifecycle] audit write failed — 5xx to allow salesport retry');
-    return res.status(500).json({ error: 'Event log write failed.' });
+  if (existingEvent) {
+    // Unprocessed row from a prior attempt — reuse it. senderEventId is @unique,
+    // so a second create() here would throw a constraint violation.
+    eventRow = existingEvent;
+  } else {
+    try {
+      eventRow = await db.userLifecycleEvent.create({
+        data: {
+          senderEventId, email: normEmail, kind,
+          prevRole: prevRole ?? null, newRole: newRole ?? null,
+          actorEmail: actorEmail ?? null, actorRole: actorRole ?? null,
+          payload,
+        },
+      });
+    } catch (err) {
+      logger.error({ err: err.message, correlationId, email: normEmail, kind },
+        '[sso-lifecycle] audit write failed — 5xx to allow salesport retry');
+      return res.status(500).json({ error: 'Event log write failed.' });
+    }
   }
 
   try {
+    // Atomic claim. Reusing an unprocessed row above is a READ, not a claim —
+    // two concurrent deliveries of the same X-Lifecycle-Event-Id can both read
+    // the same processedAt:null row and both fall through to here. This single
+    // updateMany, scoped `WHERE id = ... AND processedAt IS NULL` in the SAME
+    // statement that sets processedAt, is what picks one winner: Postgres
+    // evaluates a statement's WHERE and its write as one indivisible operation
+    // under the row lock, so the second UPDATE blocks, re-evaluates against the
+    // committed value and matches zero rows. At most one caller sees count === 1;
+    // the loser short-circuits exactly like the dedup response above.
+    const claim = await db.userLifecycleEvent.updateMany({
+      where: { id: eventRow.id, processedAt: null },
+      data:  { processedAt: new Date() },
+    });
+    if (claim.count === 0) {
+      return res.json({ ok: true, eventId: eventRow.id, deduplicated: true });
+    }
+
     const existing = await db.user.findUnique({
       where: { email: normEmail },
       select: { id: true, active: true },
@@ -100,8 +133,11 @@ router.post('/event', lifecycleGuard, async (req, res) => {
     });
     return res.json({ ok: true, eventId: eventRow.id, ...(decision.data ? { applied: true } : {}) });
   } catch (err) {
+    // Release the claim (processedAt back to null) alongside stashing the error,
+    // so a genuine retry still sees this row as unprocessed and can reclaim it.
+    // A failed attempt must stay retryable, never look "done".
     await db.userLifecycleEvent
-      .update({ where: { id: eventRow.id }, data: { error: String(err.message).slice(0, 500) } })
+      .update({ where: { id: eventRow.id }, data: { processedAt: null, error: String(err.message).slice(0, 500) } })
       .catch(() => { /* secondary failure — swallow */ });
     logger.error({ err: err.message, correlationId, email: normEmail, kind, eventId: eventRow.id },
       '[sso-lifecycle] processing failed');
