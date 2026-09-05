@@ -1,16 +1,25 @@
 name: Deploy to AWS
 
 on:
-  # Gated on CI: deploy runs only AFTER the "CI" workflow completes on main, and
-  # the job-level `if` requires conclusion == 'success', so a red CI no longer
-  # ships to prod. feedback_deploy_does_not_gate_on_ci.
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main, master]
+  # Manual only (fleet-wide since 2026-09-01). Routine prod deploys run from the
+  # devbox with `deploy-local __APP_SLUG__ prod`; this workflow is the break-glass
+  # path for when the devbox is unavailable. It never fires on its own.
+  #
+  # WHAT THE FLIP COSTS: the old `workflow_run` trigger guaranteed a GREEN CI run on
+  # main before anything shipped (feedback_deploy_does_not_gate_on_ci). A manual
+  # dispatch carries no such guarantee — CHECK CI YOURSELF before dispatching. The
+  # branch guard on the job below preserves the other half of that safety: only
+  # main/master ever reaches prod, which the `branches: [main, master]` filter used
+  # to give for free.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-char commit id to deploy, must be on the selected branch (blank = branch tip)"
+        required: false
+        default: ""
 
 concurrency:
-  group: deploy-${{ github.event.workflow_run.head_branch }}
+  group: deploy-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -28,16 +37,71 @@ jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    # The gate: deploy only when the triggering CI run passed AND was a push to
-    # main (not a PR build). A red CI produces conclusion != 'success' -> no deploy.
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
+    # The half of the old gate that survives a manual trigger: prod ships from
+    # main/master and nowhere else. The CI-conclusion half cannot survive — a
+    # workflow_dispatch run has no triggering workflow_run to inspect.
+    if: ${{ github.ref_name == 'main' || github.ref_name == 'master' }}
 
     steps:
+      # The branch guard above proves only WHERE the deploy was dispatched from, not
+      # WHAT it ships: `inputs.sha` can name a commit on any branch, so dispatching
+      # from main with a feature-branch sha would sail past the guard. The old
+      # workflow_run trigger could not do that — its head_sha was by construction a
+      # commit CI had run on main. This step re-establishes that invariant.
+      #
+      # TWO checks, and the first is what makes the second meaningful:
+      #
+      # 1. FORMAT. The input must be a full 40-hex commit id, never a branch or tag.
+      #    A mutable ref would make this whole step a time-of-check/time-of-use hole:
+      #    `compare` resolves the ref here, `actions/checkout` resolves it AGAIN a step
+      #    later, and between those two resolutions the ref can be repointed at any
+      #    commit. A full commit id cannot be repointed, so what is verified is
+      #    exactly what is built. Abbreviated ids are refused too: they can grow
+      #    ambiguous as the repo gains objects.
+      #
+      # 2. ANCESTRY. `compare/BASE...HEAD` reports `identical` when the sha IS the
+      #    branch tip and `behind` when it is an older commit on that branch; anything
+      #    else (`ahead`, `diverged`) means the sha is not on the branch, so refuse.
+      #
+      # Scope note: dispatching already requires repo write access, so this is
+      # defence in depth against a mistake or a compromised collaborator, not a
+      # trust boundary against someone who could simply push to main.
+      - name: Verify requested commit is on the deploy branch
+        if: ${{ inputs.sha != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO:     ${{ github.repository }}
+          BRANCH:   ${{ github.ref_name }}
+          SHA:      ${{ inputs.sha }}
+        run: |
+          # bash's =~ anchors ^/$ to the WHOLE string. `grep -Eq` anchors them
+          # per LINE and succeeds if ANY line matches, so a multi-line input
+          # ("<40-hex>\n<junk>") would sail past this check. Caught pre-ship 2026-09-01.
+          if ! [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "REFUSED: sha input must be a full 40-character lowercase commit id." >&2
+            echo "         Got: '$SHA'. Branch and tag names are rejected on purpose —" >&2
+            echo "         a mutable ref can be repointed between this check and checkout." >&2
+            exit 1
+          fi
+          STATUS=$(gh api "repos/$REPO/compare/$BRANCH...$SHA" --jq .status)
+          echo "compare $BRANCH...$SHA -> $STATUS"
+          case "$STATUS" in
+            identical|behind)
+              echo "OK: $SHA is on $BRANCH" ;;
+            *)
+              echo "REFUSED: $SHA is not on $BRANCH (status=$STATUS)" >&2
+              exit 1 ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # Deploy the exact commit CI validated, not just the branch tip.
-          ref: ${{ github.event.workflow_run.head_sha }}
+          # Deploy the exact commit asked for; blank input falls back to the tip of
+          # the dispatched branch (empty string is falsy in GHA expressions). Both
+          # arms are immutable commit ids by the time they land here: a non-blank
+          # input was proven 40-hex AND on this branch by the step above, and
+          # `github.sha` is pinned at dispatch time. Neither can be repointed.
+          ref: ${{ inputs.sha || github.sha }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v6
