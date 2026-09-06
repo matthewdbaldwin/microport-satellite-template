@@ -15,9 +15,18 @@ e2e-results/
 test-results/
 playwright-report/
 
-# Build scratch. node_modules is deliberately NOT excluded here: the Dockerfile
-# runs `npm ci` before `COPY . .`, and changing which node_modules wins is a
-# separate decision from this one.
+# Build scratch AND the host's dev modules. node_modules IS excluded, which
+# reverses the reasoning the fleet's three "correct" copies carry (salesport,
+# productport, EngagePort all omit it; productport comments the omission as
+# deliberate because npm ci runs before `COPY . .`). That is backwards: npm ci
+# running FIRST is exactly why the later COPY overlays the container's clean
+# install with the host's. deploy-local builds from the live working tree on the
+# devbox, where web/node_modules is ~1GB, so the omission costs that much build
+# context per web build plus image bloat. Not an ABI break — host modules carry
+# both @next/swc-linux-x64-gnu and -musl, which is why those three deploy fine
+# regardless. Amplification is why it matters here: a template shipping without
+# this line hands the omission to every satellite minted from it.
+node_modules
 .next/
 
 # Secrets a developer creates locally. Deploys run from the same devbox as
