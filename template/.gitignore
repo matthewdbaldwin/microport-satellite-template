@@ -11,3 +11,9 @@ prisma/*.db
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
+
+# help-media capture pipeline: tool deps and raw capture scratch.
+# .out/ holds Playwright recordings taken against a LOCAL seeded database;
+# only the transcoded result under web/public/help-media/ is committed.
+tools/help-media/node_modules/
+tools/help-media/.out/

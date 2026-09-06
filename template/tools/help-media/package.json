@@ -1,0 +1,9 @@
+{
+  "name": "help-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Transcodes Playwright capture output into the clips and stills the Help Library serves.",
+  "bin": { "help-media": "./build.js" },
+  "scripts": { "build": "node build.js" },
+  "dependencies": { "ffmpeg-static": "^5.2.0" }
+}

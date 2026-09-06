@@ -11,7 +11,8 @@
     "test": "jest",
     "test:ci": "CI=true jest",
     "lint": "eslint src",
-    "help:audit": "node scripts/help-media-audit.js"
+    "help:audit": "node scripts/help-media-audit.js",
+    "help:media": "node tools/help-media/build.js"
   },
   "dependencies": {
     "@matthewdbaldwin/microport-auth": "^0.16.3",
