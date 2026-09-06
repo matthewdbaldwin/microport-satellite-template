@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "migrate": "node scripts/db-migrate.js",
+    "db:seed": "node prisma/seed.js",
     "test": "jest",
     "test:ci": "CI=true jest",
     "lint": "eslint src",
