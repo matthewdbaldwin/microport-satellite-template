@@ -1,0 +1,30 @@
+# The web image is built with `COPY . .` from ./web (see web/Dockerfile), so
+# anything here that is not excluded ships in the production artifact.
+#
+# This matters most once a satellite adopts the help-media capture harness:
+# `npm run help:capture` writes REAL signed session JWTs to e2e/.auth/*.json,
+# and deploys run from the same devbox that runs the captures
+# (`deploy-local <app> prod`), so those files are present at build time.
+# Land this file BEFORE the capture harness, never after.
+#
+# Nothing below is needed by `next build` or by the running server.
+e2e/
+playwright.config.ts
+playwright.help-capture.config.ts
+e2e-results/
+test-results/
+playwright-report/
+
+# Build scratch. node_modules is deliberately NOT excluded here: the Dockerfile
+# runs `npm ci` before `COPY . .`, and changing which node_modules wins is a
+# separate decision from this one.
+.next/
+
+# Secrets a developer creates locally. Deploys run from the same devbox as
+# local development, so a .env.local is present at build time on the machine
+# that builds the image.
+#
+# The template ships no web/.env.local.example today (only SalesPort has one).
+# If a satellite adds one, add `!.env.local.example` below so the layout inside
+# the image still explains itself.
+.env*
