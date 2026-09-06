@@ -17,3 +17,10 @@ next-env.d.ts
 # only the transcoded result under web/public/help-media/ is committed.
 tools/help-media/node_modules/
 tools/help-media/.out/
+
+# Playwright storage state. auth.setup.ts writes REAL signed session JWTs here
+# (web/e2e/.auth/<role>.json) so the suite and the help-media capture pass start
+# authenticated. web/.dockerignore keeps these out of the built image; this
+# keeps them out of git, which is the worse of the two leaks because a pushed
+# commit is permanent and public to anyone with repo access.
+web/e2e/.auth/
