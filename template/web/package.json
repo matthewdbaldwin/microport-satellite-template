@@ -8,7 +8,8 @@
     "start": "next start -p ${PORT:-3000}",
     "lint": "eslint .",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "help:capture": "playwright test --config=playwright.help-capture.config.ts"
   },
   "dependencies": {
     "@matthewdbaldwin/microport-ui": "^0.45.0",
