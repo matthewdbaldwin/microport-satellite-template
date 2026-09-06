@@ -1,4 +1,11 @@
-node_modules/
+# No trailing slash, deliberately. `node_modules/` matches DIRECTORIES only,
+# so it does not ignore a node_modules SYMLINK — and a symlink is exactly what
+# this repo grows in a git worktree, because typechecking or running Playwright
+# there means pointing web/node_modules at the main checkout's tree. With the
+# directory-only rule, `git add -A` in a worktree stages that symlink and
+# commits an absolute path that exists on one devbox and nowhere else. Verified
+# both ways with git check-ignore against a real symlink.
+node_modules
 scaffold.config.json
 *.log
 .DS_Store
