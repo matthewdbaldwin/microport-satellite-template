@@ -2,7 +2,7 @@
   "name": "__APP_SLUG__-api",
   "version": "0.1.0",
   "private": true,
-  "description": "__APP_NAME__ API — a MicroPort satellite.",
+  "description": "__APP_NAME__ API \u2014 a MicroPort satellite.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -10,7 +10,8 @@
     "migrate": "node scripts/db-migrate.js",
     "test": "jest",
     "test:ci": "CI=true jest",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "help:audit": "node scripts/help-media-audit.js"
   },
   "dependencies": {
     "@matthewdbaldwin/microport-auth": "^0.16.3",
@@ -39,6 +40,6 @@
     "fast-uri": "^4.1.4",
     "mysql2": "^3.24.3"
   },
-  "//deps-note": "prisma CLI lives in dependencies on purpose — runtime does npm ci --omit=dev then npx prisma migrate deploy. feedback_prisma_cli_stays_in_dependencies. NO file: self-deps here — feedback_develop_to_main_bump_breaks_web_lockfile.",
-  "//overrides-note": "Forces patched versions of 3 High-severity CVEs nested under the prisma CLI's own dependency tree (deepmerge-ts stack-exhaustion DoS via @prisma/config, mysql2 auth-downgrade + decompression-bomb DoS, fast-uri SSRF/host-confusion via ajv/@prisma/streams-local). None are ever exercised at runtime (Postgres-only, no MySQL, no Prisma streams) — prisma itself has no stable release yet that bumps them (latest GA is 7.9.1; the fix lands in 8.0.0, still an RC as of 2026-09-03). Every new satellite minted from this template inherits the fix on day one. feedback_prisma_transitive_cve_overrides."
+  "//deps-note": "prisma CLI lives in dependencies on purpose \u2014 runtime does npm ci --omit=dev then npx prisma migrate deploy. feedback_prisma_cli_stays_in_dependencies. NO file: self-deps here \u2014 feedback_develop_to_main_bump_breaks_web_lockfile.",
+  "//overrides-note": "Forces patched versions of 3 High-severity CVEs nested under the prisma CLI's own dependency tree (deepmerge-ts stack-exhaustion DoS via @prisma/config, mysql2 auth-downgrade + decompression-bomb DoS, fast-uri SSRF/host-confusion via ajv/@prisma/streams-local). None are ever exercised at runtime (Postgres-only, no MySQL, no Prisma streams) \u2014 prisma itself has no stable release yet that bumps them (latest GA is 7.9.1; the fix lands in 8.0.0, still an RC as of 2026-09-03). Every new satellite minted from this template inherits the fix on day one. feedback_prisma_transitive_cve_overrides."
 }
