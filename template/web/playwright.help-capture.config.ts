@@ -17,6 +17,7 @@
 
 import { defineConfig, devices } from '@playwright/test';
 import { RAW_DIR } from './e2e/help-captures/helpers/paths';
+import { assertCaptureTargetAllowed } from '../prisma/seed-guard';
 
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -28,14 +29,18 @@ const VIEWPORT = { width: 1280, height: 720 };
 // add entries here and the projects below follow without further edits.
 const ROLES = ['admin'] as const;
 
-// ── Guard ────────────────────────────────────────────────────────────
+// ── Guard (browser target) ──────────────────────────────────────────────
 // Captures must come from the LOCAL fictional seed and must never touch
 // production or a shared dev environment, either of which may hold real
 // clinician and customer names. The sibling e2e config trains operators to
 // export BASE_URL for exactly that kind of target, so a stray value left in a
-// shell is a realistic input, not a hypothetical. This is the recording twin
-// of the demo seed's own database guard: that one stops a write to a remote
-// database, this one stops a recording of a remote app.
+// shell is a realistic input, not a hypothetical.
+//
+// This checks only the BROWSER target. It does NOT check the database the
+// running app is actually wired to — see the DATABASE_URL guard below for
+// that half. (An earlier version of this comment claimed this WAS the
+// recording twin of the seed guard's database check; it never checked
+// DATABASE_URL at all. Fixed 2026-09-07 — see assertCaptureTargetAllowed.)
 //
 // Parse with the real WHATWG URL parser rather than a substring check, so
 // e.g. `http://localhost.evil.example.com` is correctly rejected. Accept
@@ -70,6 +75,17 @@ function resolveBaseURL(raw: string | undefined): string {
 }
 
 const BASE_URL = resolveBaseURL(process.env.BASE_URL);
+
+// ── Guard (database target) ─────────────────────────────────────────────
+// The browser-target guard above says nothing about which database the app
+// behind BASE_URL is writing to — this config ships no `webServer`, so that
+// app was started by hand, in a different process, possibly a while ago.
+// Refuses a non-local DATABASE_URL outright (this process is stricter than
+// the seed guard: no "-dev" host, no "_dev"/"_test" db-name free pass — see
+// prisma/seed-guard.js for why); warns and proceeds when DATABASE_URL isn't
+// set here at all, since that's the common case and doesn't by itself mean
+// the app is pointed anywhere unsafe.
+assertCaptureTargetAllowed();
 
 export default defineConfig({
   testDir: './e2e',

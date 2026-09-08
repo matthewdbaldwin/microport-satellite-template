@@ -1,4 +1,7 @@
-const { classifySeedTarget, assertSeedTargetAllowed } = require('../prisma/seed-guard');
+const {
+  classifySeedTarget, assertSeedTargetAllowed,
+  classifyCaptureTarget, assertCaptureTargetAllowed,
+} = require('../prisma/seed-guard');
 
 const url = (host, db) => `postgresql://user:pass@${host}:5432/${db}?schema=public`;
 const PROD = url('platform-db.czi8ie8iy77d.eu-central-1.rds.amazonaws.com', 'salesport');
@@ -121,5 +124,89 @@ describe('seed-guard assertSeedTargetAllowed', () => {
     expect(exit).not.toHaveBeenCalled();
     expect(log.log).toHaveBeenCalledWith(expect.stringContaining('localhost/salesport'));
     expect(log.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('seed-guard classifyCaptureTarget (stricter than classifySeedTarget)', () => {
+  test.each([
+    ['localhost', 'app'],
+    ['127.0.0.1', 'app'],
+    ['[::1]', 'app'],
+    ['host.docker.internal', 'app'],
+    ['postgres', 'app'],
+    ['pgbouncer', 'app'],
+    ['db', 'app'],
+  ])('allows the local host %s', (host, db) => {
+    expect(classifyCaptureTarget({ DATABASE_URL: url(host, db) })).toMatchObject({ verdict: 'ok' });
+  });
+
+  test('refuses the platform-db-dev RDS host — unlike classifySeedTarget, a "-dev" host is NOT a free pass here', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: DEV_RDS })).toMatchObject({ verdict: 'refuse' });
+  });
+
+  test('refuses a _dev database name on an otherwise-unrecognised host — unlike classifySeedTarget', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: url('db.example.internal', 'app_dev') }))
+      .toMatchObject({ verdict: 'refuse' });
+  });
+
+  test('refuses the production RDS instance', () => {
+    const v = classifyCaptureTarget({ DATABASE_URL: PROD });
+    expect(v.verdict).toBe('refuse');
+    expect(v.reason).toContain('platform-db.czi8ie8iy77d.eu-central-1.rds.amazonaws.com');
+  });
+
+  test('warns rather than refuses when DATABASE_URL is not set — this process cannot see what the already-running app is wired to', () => {
+    expect(classifyCaptureTarget({})).toMatchObject({ verdict: 'warn', host: null, db: null });
+  });
+
+  test('refuses an unparseable DATABASE_URL', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: 'not a url' }))
+      .toMatchObject({ verdict: 'refuse', reason: 'DATABASE_URL could not be parsed' });
+  });
+
+  test('CAPTURE_ALLOW_REMOTE_DB overrides only when it names the EXACT resolved host', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: PROD, CAPTURE_ALLOW_REMOTE_DB: 'platform-db.czi8ie8iy77d.eu-central-1.rds.amazonaws.com' }))
+      .toMatchObject({ verdict: 'ok' });
+  });
+
+  test('CAPTURE_ALLOW_REMOTE_DB naming a different host does not override', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: PROD, CAPTURE_ALLOW_REMOTE_DB: 'some-other-host.example.com' }))
+      .toMatchObject({ verdict: 'refuse' });
+  });
+
+  test('a bare CAPTURE_ALLOW_REMOTE_DB=1 (the seed guard\'s override shape) does NOT override — a named host is required', () => {
+    expect(classifyCaptureTarget({ DATABASE_URL: PROD, CAPTURE_ALLOW_REMOTE_DB: '1' })).toMatchObject({ verdict: 'refuse' });
+  });
+});
+
+describe('seed-guard assertCaptureTargetAllowed', () => {
+  const fakeLog = () => ({ log: jest.fn(), warn: jest.fn(), error: jest.fn() });
+
+  test('exits with code 2 and names the target on refusal', () => {
+    const exit = jest.fn();
+    const log = fakeLog();
+    assertCaptureTargetAllowed({ DATABASE_URL: DEV_RDS }, { exit, log });
+    expect(exit).toHaveBeenCalledWith(2);
+    expect(log.error.mock.calls[0][0]).toContain('REFUSING to capture');
+    expect(log.log).not.toHaveBeenCalled();
+  });
+
+  test('warns and proceeds (does not exit) when DATABASE_URL is unset', () => {
+    const exit = jest.fn();
+    const log = fakeLog();
+    const v = assertCaptureTargetAllowed({}, { exit, log });
+    expect(v.verdict).toBe('warn');
+    expect(exit).not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalled();
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  test('logs and proceeds (does not exit) when the target is local', () => {
+    const exit = jest.fn();
+    const log = fakeLog();
+    const v = assertCaptureTargetAllowed({ DATABASE_URL: url('localhost', 'app') }, { exit, log });
+    expect(v.verdict).toBe('ok');
+    expect(exit).not.toHaveBeenCalled();
+    expect(log.log).toHaveBeenCalledWith(expect.stringContaining('localhost/app'));
   });
 });
