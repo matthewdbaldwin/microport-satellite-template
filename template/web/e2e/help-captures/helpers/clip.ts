@@ -133,3 +133,27 @@ export async function saveClip(page: Page, slug: string, name: string, sidecar?:
   await video.saveAs(path.join(slugDir(slug), `${name}.webm`));
   await video.delete();                                      // drop the copy in outputDir
 }
+
+/**
+ * Type into a text input or textarea with the cursor visible and the keystrokes
+ * paced, the way a viewer expects to see text arrive.
+ *
+ * page.fill() is the wrong tool for a capture: it sets the whole value in a
+ * single frame with no pointer travel and no keystrokes, so the clip shows a
+ * field that was empty and is suddenly full, with no visible cause. clickAt
+ * moves the cursor overlay onto the control first, then the value is typed.
+ *
+ * `delay` is per keystroke. 25ms reads as brisk-but-followable at fps 24; a
+ * long body paragraph is better served by a shorter delay than by skipping the
+ * pacing entirely.
+ */
+export async function typeInto(
+  page: Page,
+  selector: string,
+  value: string,
+  opts: { delay?: number } = {},
+): Promise<void> {
+  await clickAt(page, selector);
+  await page.keyboard.type(value, { delay: opts.delay ?? 25 });
+  await settle(page, 250);
+}
