@@ -5,18 +5,26 @@ on:
   # devbox with `deploy-local __APP_SLUG__ prod`; this workflow is the break-glass
   # path for when the devbox is unavailable. It never fires on its own.
   #
-  # WHAT THE FLIP COSTS: the old `workflow_run` trigger guaranteed a GREEN CI run on
-  # main before anything shipped (feedback_deploy_does_not_gate_on_ci). A manual
-  # dispatch carries no such guarantee — CHECK CI YOURSELF before dispatching. The
-  # branch guard on the job below preserves the other half of that safety: only
-  # main/master ever reaches prod, which the `branches: [main, master]` filter used
-  # to give for free.
+  # WHAT THE FLIP COST, AND HOW IT WAS PAID BACK: the old `workflow_run` trigger
+  # guaranteed a GREEN CI run on main before anything shipped
+  # (feedback_deploy_does_not_gate_on_ci). The flip to workflow_dispatch dropped
+  # that guarantee, and for five days this break-glass path was the only route to
+  # prod with no CI gate — the devbox path (`deploy-local`) kept one. Restored
+  # 2026-09-06 as the "Verify CI is green for this commit" step below, which reads
+  # the CI conclusion for the exact resolved sha. Both halves of the old gate are
+  # now enforced again: the branch guard on the job (only main/master reaches prod)
+  # and the CI-conclusion check (only green commits do).
   workflow_dispatch:
     inputs:
       sha:
         description: "Full 40-char commit id to deploy, must be on the selected branch (blank = branch tip)"
         required: false
         default: ""
+      skip_ci_check:
+        description: "Ship even if CI is not green for this commit (logged loudly; use only to break glass)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-${{ github.ref_name }}
@@ -25,6 +33,12 @@ concurrency:
 permissions:
   id-token: write   # OIDC
   contents: read
+  # Required by the "Verify CI is green for this commit" step below: an explicit
+  # permissions block sets every UNLISTED scope to none, and
+  # GET /repos/{repo}/actions/runs needs `actions: read`. Without this the gate
+  # 403s on every dispatch and fails closed -- which would push the operator
+  # straight to skip_ci_check, the exact override the gate exists to avoid.
+  actions: read
   packages: read
 
 env:
@@ -37,10 +51,11 @@ jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    # The half of the old gate that survives a manual trigger: prod ships from
-    # main/master and nowhere else. The CI-conclusion half cannot survive — a
-    # workflow_dispatch run has no triggering workflow_run to inspect.
-    if: ${{ github.ref_name == 'main' || github.ref_name == 'master' }}
+    # One half of the old gate: prod ships from main/master and nowhere else.
+    # The CI-conclusion half is no longer inferred from a triggering workflow_run
+    # (a dispatch has none) — it is looked up explicitly by sha in the
+    # "Verify CI is green for this commit" step below.
+    if: ${{ (github.ref_name == 'main' || github.ref_name == 'master') }}
 
     steps:
       # The branch guard above proves only WHERE the deploy was dispatched from, not
@@ -92,6 +107,62 @@ jobs:
               echo "REFUSED: $SHA is not on $BRANCH (status=$STATUS)" >&2
               exit 1 ;;
           esac
+
+      # The half of the old `workflow_run` gate that the 2026-09-01 flip to
+      # workflow_dispatch dropped: proof that CI actually PASSED for the commit
+      # being shipped. The branch + format + ancestry checks above prove the sha
+      # is on main; none of them prove it is green. Until this step existed the
+      # devbox path (`deploy-local`, which has its own CI gate) was gated and this
+      # break-glass path was not, so the safer-looking route was the unguarded one.
+      #
+      # Reads the CI conclusion for the exact resolved sha. Uses the REST API
+      # rather than `gh run list --commit`, which returns EMPTY for some repos in
+      # this fleet even when runs exist (observed on hubport, 2026-09-06) — an
+      # empty list would read as "no CI" and refuse a perfectly good deploy.
+      #
+      # Re-runs create several runs for one sha, so the MOST RECENT is what counts:
+      # a red first attempt followed by a green re-run is green.
+      - name: Verify CI is green for this commit
+        if: ${{ !inputs.skip_ci_check }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO:     ${{ github.repository }}
+          SHA:      ${{ inputs.sha || github.sha }}
+        run: |
+          RUNS=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100" \
+                   --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml")]')
+          [ -n "$RUNS" ] || RUNS='[]'
+          N=$(echo "$RUNS" | jq 'length')
+          if [ "$N" -eq 0 ]; then
+            echo "REFUSED: no CI run found for $SHA." >&2
+            echo "         Two causes, and they need different responses:" >&2
+            echo "           * CI has not run yet     -> wait for it, then re-dispatch." >&2
+            echo "           * CI never runs for this commit, because ci.yml's" >&2
+            echo "             paths-ignore (docs/**, *.md, LICENSE, .gitignore," >&2
+            echo "             .env.example) skipped it -> there is nothing to wait" >&2
+            echo "             for; re-dispatch with skip_ci_check=true." >&2
+            echo "         Saying only \"wait for CI\" when the second case is true" >&2
+            echo "         trains the operator to reach for the override reflexively." >&2
+            exit 1
+          fi
+          read -r ST CC URL <<<"$(echo "$RUNS" | jq -r \
+            'sort_by(.run_started_at // .created_at) | last | "\(.status) \(.conclusion) \(.html_url)"')"
+          echo "latest CI run for $SHA: status=$ST conclusion=$CC"
+          echo "$URL"
+          if [ "$ST" != "completed" ]; then
+            echo "REFUSED: CI has not finished (status=$ST). Wait for it." >&2
+            exit 1
+          fi
+          if [ "$CC" != "success" ]; then
+            echo "REFUSED: CI concluded '$CC' for $SHA — refusing to ship a red commit." >&2
+            exit 1
+          fi
+          echo "OK: CI is green for $SHA ($N run(s) inspected)."
+
+      - name: Break-glass notice
+        if: ${{ inputs.skip_ci_check }}
+        run: |
+          echo "::warning title=CI check skipped::Deploying ${{ inputs.sha || github.sha }} WITHOUT a green CI check (skip_ci_check=true)."
 
       - name: Checkout
         uses: actions/checkout@v7
