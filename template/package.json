@@ -39,9 +39,8 @@
   },
   "overrides": {
     "deepmerge-ts": "^8.0.2",
-    "fast-uri": "^4.1.4",
     "mysql2": "^3.24.3"
   },
   "//deps-note": "prisma CLI lives in dependencies on purpose. The Dockerfile installs with npm ci --omit=dev, and the container CMD runs node scripts/db-migrate.js, which calls npx prisma migrate deploy at boot. As a devDependency the CLI would be missing from the image and npx would fetch an unpinned one. feedback_prisma_cli_stays_in_dependencies.",
-  "//overrides-note": "Forces patched versions of 3 transitive deps with security advisories, nested under the prisma CLI's own dependency tree (deepmerge-ts stack-exhaustion DoS via @prisma/config, mysql2 auth-downgrade + decompression-bomb DoS, fast-uri SSRF/host-confusion via ajv/@prisma/streams-local). None are ever exercised at runtime (Postgres-only, no MySQL, no Prisma streams). Every new satellite minted from this template inherits the fix on day one. Checked 2026-09-12: the newest stable prisma, 7.10.0 (2026-08-25), still pins deepmerge-ts 7.1.5 (advisory: <8.0.0) and mysql2 3.15.3 (advisories: <=3.23.0), so those two overrides are still needed; 8.0.0 is still a release candidate. fast-uri reaches the tree through ajv's ^3.0.1 range, and 3.1.7 has no open advisory, so that override may no longer be required. feedback_prisma_transitive_cve_overrides."
+  "//overrides-note": "Forces patched versions of 2 transitive deps with security advisories, nested under the prisma CLI's own dependency tree (deepmerge-ts stack-exhaustion DoS via @prisma/config, mysql2 auth-downgrade + decompression-bomb DoS). Neither is ever exercised at runtime (Postgres-only, no MySQL, no Prisma streams). Every new satellite minted from this template inherits the fix on day one. Checked 2026-09-12: the newest stable prisma, 7.10.0 (2026-08-25), still pins deepmerge-ts 7.1.5 (advisory: <8.0.0) and mysql2 3.15.3 (advisories: <=3.23.0), so those two overrides are still needed; 8.0.0 is still a release candidate. fast-uri override removed 2026-09-12: ajv's ^3.0.1 range resolves fast-uri 3.1.7, which has no open advisory. feedback_prisma_transitive_cve_overrides."
 }
