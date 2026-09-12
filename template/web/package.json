@@ -35,6 +35,5 @@
     "tailwindcss": "^4.3.0",
     "typescript": "^5.5.0",
     "vitest": "^3.2.7"
-  },
-  "//note": "No file: self-deps. microport-ui pinned. feedback_develop_to_main_bump_breaks_web_lockfile."
+  }
 }
