@@ -46,24 +46,28 @@ jobs:
       - name: Log in to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Credentials go in as BuildKit secret mounts, never --build-arg (see
+      # deploy.yml and incident_build_token_leak_2026-09-06).
       - name: Build and push __APP_SLUG__-api:dev
         env:
+          DOCKER_BUILDKIT: 1
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          docker build --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN -t $ECR_REGISTRY/__APP_SLUG__-api:dev .
+          docker build --secret id=npm_token,env=NODE_AUTH_TOKEN -t $ECR_REGISTRY/__APP_SLUG__-api:dev .
           docker push $ECR_REGISTRY/__APP_SLUG__-api:dev
 
       - name: Build and push __APP_SLUG__-web:dev
         env:
+          DOCKER_BUILDKIT: 1
           NODE_AUTH_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
           SENTRY_AUTH_TOKEN:      ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           docker build \
             --build-arg API_URL=http://localhost:4100 \
-            --build-arg NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN \
+            --secret id=npm_token,env=NODE_AUTH_TOKEN \
             --build-arg NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
-            --build-arg SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN \
+            --secret id=sentry_token,env=SENTRY_AUTH_TOKEN \
             --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT=development \
             -t $ECR_REGISTRY/__APP_SLUG__-web:dev ./web
           docker push $ECR_REGISTRY/__APP_SLUG__-web:dev

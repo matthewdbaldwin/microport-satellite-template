@@ -5,9 +5,11 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json .npmrc ./
-# NODE_AUTH_TOKEN is needed to pull the private @matthewdbaldwin/* packages.
-ARG NODE_AUTH_TOKEN
-RUN npm ci --omit=dev
+# NODE_AUTH_TOKEN is needed to pull the private @matthewdbaldwin/* packages. It
+# arrives as a BuildKit SECRET MOUNT, never ARG/ENV (history / image config):
+#   docker build --secret id=npm_token,env=NODE_AUTH_TOKEN ...
+RUN --mount=type=secret,id=npm_token,required=true \
+    NODE_AUTH_TOKEN="$(cat /run/secrets/npm_token)" npm ci --omit=dev
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
