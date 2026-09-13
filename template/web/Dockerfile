@@ -18,7 +18,7 @@ COPY . .
 # next.config.ts breaks in prod — keep .js only. feedback_next_config_ts_prod.
 RUN rm -f next.config.ts
 
-ARG API_URL=http://localhost:4100
+ARG API_URL=http://localhost:__API_PORT__
 ENV API_URL=${API_URL}
 
 # Sentry build-time vars (optional). NEXT_PUBLIC_SENTRY_DSN is baked into the

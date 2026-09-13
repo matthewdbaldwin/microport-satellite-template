@@ -24,7 +24,7 @@ COPY src ./src
 # src/lib/db.js refuses to connect without it. feedback_prisma_adapter_pg_ssl.
 COPY rds-ca-eu-central-1.pem ./rds-ca-eu-central-1.pem
 RUN npx prisma generate
-EXPOSE 4100
+EXPOSE __API_PORT__
 # Migrate on boot, then serve. Migrations are idempotent (IF NOT EXISTS) because
 # adapter-pg runs them non-transactionally. feedback_prisma7_non_transactional_migrations.
 CMD ["sh", "-c", "node scripts/db-migrate.js && node src/server.js"]

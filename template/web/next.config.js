@@ -12,7 +12,7 @@ const nextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: version },
   async rewrites() {
     // Proxy /api → the __APP_NAME__ API so the web app stays same-origin.
-    return [{ source: '/api/:path*', destination: `${process.env.API_ORIGIN || 'http://localhost:4100'}/api/:path*` }];
+    return [{ source: '/api/:path*', destination: `${process.env.API_ORIGIN || 'http://localhost:__API_PORT__'}/api/:path*` }];
   },
 };
 

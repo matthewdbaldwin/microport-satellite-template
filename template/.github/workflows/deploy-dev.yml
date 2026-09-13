@@ -64,7 +64,7 @@ jobs:
           SENTRY_AUTH_TOKEN:      ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           docker build \
-            --build-arg API_URL=http://localhost:4100 \
+            --build-arg API_URL=http://localhost:__API_PORT__ \
             --secret id=npm_token,env=NODE_AUTH_TOKEN \
             --build-arg NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
             --secret id=sentry_token,env=SENTRY_AUTH_TOKEN \

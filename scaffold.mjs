@@ -41,6 +41,31 @@ for (const k of required) if (!cfg[k]) die(`config.${k} is required`);
 if (!/^[a-z][a-z0-9-]*$/.test(cfg.appSlug)) die(`appSlug must be lower-kebab (got "${cfg.appSlug}")`);
 if (!['users', 'User'].includes(cfg.fkTable)) die(`fkTable must be "users" (@@map) or "User" — see feedback_prisma_migration_fk_table_naming_per_repo`);
 
+// ── API port: must not collide with a live satellite ────────────────────────
+// The web container reaches its API over localhost inside the ECS task, so a
+// borrowed port silently points the web build at the wrong app. The template
+// used to hardcode 4100, which is EngagePort's; finport minted with it.
+// TODO(W1.1): read fleet.json instead of this hardcoded copy of deploy-local's
+// app table (devbox-tooling bin/deploy-local, verified 2026-09-13).
+const FLEET_API_PORTS = {
+  4000: 'salesport',
+  4001: 'reviewport, clinicport',
+  4002: 'opsport',
+  4003: 'execport',
+  4005: 'finport',
+  4006: 'productport',
+  4007: 'hubport',
+  4100: 'engageport',
+};
+const DEFAULT_API_PORT = 4008;
+const apiPort = cfg.apiPort ?? DEFAULT_API_PORT;
+if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535) {
+  die(`apiPort must be an integer 1024-65535 (got ${JSON.stringify(cfg.apiPort)})`);
+}
+if (FLEET_API_PORTS[apiPort]) {
+  die(`apiPort ${apiPort} is already used by ${FLEET_API_PORTS[apiPort]}. Pick a free port (taken: ${Object.keys(FLEET_API_PORTS).join(', ')}).`);
+}
+
 const TOKENS = {
   __APP_NAME__: cfg.appName,                 // "ServicePort"
   __APP_SLUG__: cfg.appSlug,                 // "serviceport"
@@ -48,6 +73,7 @@ const TOKENS = {
   __PRIMARY_ROLE__: cfg.primaryRole,         // "agent"
   __FK_TABLE__: cfg.fkTable,                  // "users" | "User"
   __DB_NAME__: cfg.dbName || cfg.appSlug,
+  __API_PORT__: String(apiPort),              // 4008
 };
 
 function applyTokens(s) {
