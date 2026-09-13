@@ -5,9 +5,11 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json .npmrc ./
-# NODE_AUTH_TOKEN is needed to pull the private @matthewdbaldwin/* packages.
-ARG NODE_AUTH_TOKEN
-RUN npm ci --omit=dev
+# NODE_AUTH_TOKEN is needed to pull the private @matthewdbaldwin/* packages. It
+# arrives as a BuildKit SECRET MOUNT, never ARG/ENV (history / image config):
+#   docker build --secret id=npm_token,env=NODE_AUTH_TOKEN ...
+RUN --mount=type=secret,id=npm_token,required=true \
+    NODE_AUTH_TOKEN="$(cat /run/secrets/npm_token)" npm ci --omit=dev
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
@@ -22,7 +24,7 @@ COPY src ./src
 # src/lib/db.js refuses to connect without it. feedback_prisma_adapter_pg_ssl.
 COPY rds-ca-eu-central-1.pem ./rds-ca-eu-central-1.pem
 RUN npx prisma generate
-EXPOSE 4100
+EXPOSE __API_PORT__
 # Migrate on boot, then serve. Migrations are idempotent (IF NOT EXISTS) because
 # adapter-pg runs them non-transactionally. feedback_prisma7_non_transactional_migrations.
 CMD ["sh", "-c", "node scripts/db-migrate.js && node src/server.js"]

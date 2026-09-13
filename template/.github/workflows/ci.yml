@@ -5,11 +5,34 @@ on:
     branches: [develop, main]
   pull_request:
 
-# Deploy is GATED on this workflow: deploy.yml triggers on `workflow_run` of "CI"
-# and only proceeds when conclusion == 'success', so a red CI blocks the prod ECS
-# rollout. feedback_deploy_does_not_gate_on_ci.
+# Prod deploys are gated on THIS workflow by sha, not by trigger. deploy.yml is
+# `workflow_dispatch` (fleet-wide since 2026-09-01) and its "Verify CI is green
+# for this commit" step reads this workflow's conclusion for the exact commit
+# being shipped; the devbox path (`deploy-local <app> prod`) runs the same check
+# itself. A red or missing run here refuses the prod rollout by either route
+# (`skip_ci_check` / `--skip-ci-check` override, loudly).
+# feedback_deploy_does_not_gate_on_ci.
 
 jobs:
+  # ── Build-secret guard ───────────────────────────────────────────────────
+  # Fails the build if a credential can reach a shipped image, via any of:
+  #   ENV FOO_TOKEN=...     persists into the final image config
+  #   ARG FOO_TOKEN         recorded in `docker history`
+  #   --build-arg FOO_TOKEN=...   the workflow side of the same leak
+  # On 2026-09-06 all 9 fleet repos were found publishing a live GitHub
+  # Packages token (7 of them a Sentry token too) in their ECR images by
+  # exactly those routes. Fixing them was a one-time cleanup; this job is what
+  # turns it into an invariant. Pure grep — no Node, no install, seconds.
+  # Invoked via `bash` so it does not depend on the exec bit surviving the mint.
+  build-secrets:
+    name: Build-secret guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: No credentials in ENV / ARG / --build-arg
+        run: bash scripts/check-build-secrets.sh
+
   api:
     runs-on: ubuntu-latest
     steps:

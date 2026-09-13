@@ -69,6 +69,7 @@ miss-driven authoring.
 | `__PRIMARY_ROLE__` | `agent` | seed role string |
 | `__FK_TABLE__` | `User` | FK-table naming (`users` @@map vs `User`) |
 | `__DB_NAME__` | `serviceport` | local DB name |
+| `__API_PORT__` | `4008` | API port: `PORT` default, `EXPOSE`, web `API_URL` in both deploy workflows. `config.apiPort`, default 4008; the scaffold refuses a port another satellite already uses |
 
 ## Keeping it current
 
