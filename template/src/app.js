@@ -30,6 +30,13 @@ app.use(helmet({
 }));
 
 const corsOrigins = (process.env.WEB_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+// Fail closed in production: with no allowlist, `origin: true` below reflects ANY
+// Origin back with credentials: true, so a misconfigured task def would let any
+// site make credentialed calls. Refuse to boot instead. Non-production keeps the
+// permissive local-dev fallback. tests/corsFailClosed.test.js.
+if (corsOrigins.length === 0 && process.env.NODE_ENV === 'production') {
+  throw new Error('WEB_ORIGIN must be set in production: CORS would otherwise reflect any origin with credentials');
+}
 app.use(cors({ origin: corsOrigins.length ? corsOrigins : true, credentials: true }));
 
 app.use(pinoHttp({ logger, genReqId: correlationReqId }));
