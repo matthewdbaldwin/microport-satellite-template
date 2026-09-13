@@ -11,10 +11,28 @@
 //    as applied instead of failing.
 'use strict';
 
+const pkg = require('../package.json');
+
+// Printed BEFORE anything that can exit -- before the env guard, before the
+// requires that could fail on a broken image, before `migrate deploy`. Prod runs
+// `CMD ["sh", "-c", "node scripts/db-migrate.js && node src/server.js"]`, so a
+// failure here short-circuits the `&&` and server.js never prints its own
+// banner: without this line a failed migration is a nameless build, which is
+// exactly when you most need to know which one is failing. ` migrate` vs
+// server.js's ` start` says how far boot got, and both match the
+// `<app>-api@<version>` shape deploy verification greps for. Keep it derived
+// from package.json -- a literal that drifts reports the wrong build.
+// Normalise to the -api suffix: a minted satellite's package name isn't known
+// in advance, and a bare name is ambiguous with the web tier's
+// `<app>-web@<version>`. Plain console.log -- app deps aren't loaded yet. template#5.
+const API_NAME = pkg.name.endsWith('-api') ? pkg.name : `${pkg.name}-api`;
+console.log(`${API_NAME}@${pkg.version} migrate`);
+
 const { execSync } = require('node:child_process');
 const fs = require('node:fs');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
+const { formatError } = require('./lib/redactSecrets');
 
 const MIGRATE_URL = process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL;
 if (!MIGRATE_URL) {
@@ -66,7 +84,10 @@ async function main() {
   }
 }
 
+// Never log the raw error: a connection failure can carry the connection
+// string (with its password) in both message and stack, and this output ships
+// to CloudWatch. formatError keeps name/code/message/stack, redacted. hubport#142.
 main().catch((e) => {
-  console.error('[db-migrate] failed:', e);
+  console.error('[db-migrate] failed:', formatError(e));
   process.exit(1);
 });
