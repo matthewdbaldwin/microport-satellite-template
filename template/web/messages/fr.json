@@ -13,6 +13,17 @@
   "home": {
     "welcome": "Bienvenue, {name}."
   },
+  "errors": {
+    "notFoundTitle": "Page introuvable.",
+    "notFoundDescription": "Le lien est peut-être obsolète, ou vous avez suivi un signet vers un contenu déplacé. Essayez l'une des routes ci-dessous.",
+    "notFoundCtaDashboard": "Aller au tableau de bord",
+    "notFoundCtaHome": "Retour à l'accueil",
+    "inAppErrorTitle": "Une erreur s'est produite lors du chargement de cette page.",
+    "inAppErrorDescription": "Réessayer suffit généralement. Si le problème persiste, la référence ci-dessous nous aidera à le retrouver.",
+    "errorRef": "Référence",
+    "tryAgain": "Réessayer",
+    "backToDashboard": "Retour au tableau de bord"
+  },
   "bug": {
     "label": "Signaler un bug",
     "titleLabel": "Titre *",

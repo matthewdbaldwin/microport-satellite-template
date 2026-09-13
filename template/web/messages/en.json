@@ -13,6 +13,17 @@
   "home": {
     "welcome": "Welcome, {name}."
   },
+  "errors": {
+    "notFoundTitle": "We couldn't find that page.",
+    "notFoundDescription": "The link may be out of date, or you may have followed a bookmark to something that's since moved. Try one of the routes below.",
+    "notFoundCtaDashboard": "Go to dashboard",
+    "notFoundCtaHome": "Back to home",
+    "inAppErrorTitle": "Something went wrong loading this page.",
+    "inAppErrorDescription": "A retry usually fixes it. If it keeps happening, the error reference below helps us track it down.",
+    "errorRef": "Reference",
+    "tryAgain": "Try again",
+    "backToDashboard": "Back to dashboard"
+  },
   "bug": {
     "label": "Report a bug",
     "titleLabel": "Title *",

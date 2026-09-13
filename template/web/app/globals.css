@@ -25,11 +25,11 @@ layer(base);
   --color-muted-2: var(--muted2);
   --color-muted: var(--muted);
 
-  --color-green: #22c55e;
-  --color-red: #ff144b;
-  --color-yellow: #f59e0b;
-  --color-purple: #802cf1;
-  --color-blue: #3b82f6;
+  --color-green: var(--green, #22c55e);
+  --color-red: var(--red, #ff144b);
+  --color-yellow: var(--yellow, #f59e0b);
+  --color-purple: var(--purple, #802cf1);
+  --color-blue: var(--blue, #3b82f6);
   --color-orange: #f97316;
   --color-teal: #14b8a6;
   --color-navy: #002d72;
@@ -145,10 +145,7 @@ layer(base);
 ────────────────────────────────────────────────────────────────────────── */
 :root,
 [data-theme] {
-  --fg:        var(--text);
-  --danger:    var(--red);
   --danger-fg: var(--accent-fg);
-  --surface-2: var(--surface2);
 
   /* SOLID destructive fill — a red that stays AA under WHITE text. Deliberately
      NOT var(--red)/--danger: the per-theme palette red is tuned to be legible AS
@@ -163,9 +160,12 @@ layer(base);
      existed and shipped without it (found 2026-08-23) — it was the fleet's only
      satellite missing it, because the template was the only place still missing
      it. Any destructive control a satellite grows must use --danger-fill, never
-     --danger, for its background. (Fleet standard 2026-08-21.) */
-  --danger-fill:    var(--status-danger, #dc2626);
-  --danger-fill-fg: #ffffff;
+     --danger, for its background. (Fleet standard 2026-08-21.)
+
+     --danger-fill/--danger-fill-fg/--fg/--danger/--surface-2 used to be defined
+     right here; deleted as byte-identical duplicates now that microport-ui
+     0.58's base-layer alias block provides all of them. --danger-fg stays
+     local since it isn't one of the lib's 10 aliases. */
 
   /* Modal-backdrop scrim. Not part of microport-ui's shared theme tokens —
      each satellite defines it locally (fleet convention, e.g. salesport/
