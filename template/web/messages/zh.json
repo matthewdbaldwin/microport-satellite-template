@@ -13,6 +13,17 @@
   "home": {
     "welcome": "欢迎，{name}。"
   },
+  "errors": {
+    "notFoundTitle": "找不到该页面。",
+    "notFoundDescription": "链接可能已过期,或您访问的书签内容已移动。请尝试以下路径之一。",
+    "notFoundCtaDashboard": "前往仪表板",
+    "notFoundCtaHome": "返回首页",
+    "inAppErrorTitle": "加载页面时出错。",
+    "inAppErrorDescription": "通常重试即可解决。如果问题持续,下方的错误编号可帮助我们排查。",
+    "errorRef": "编号",
+    "tryAgain": "重试",
+    "backToDashboard": "返回仪表板"
+  },
   "bug": {
     "label": "报告问题",
     "titleLabel": "标题 *",
