@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { PageLoading } from '@matthewdbaldwin/microport-ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { HelpButton } from '@/components/ui/HelpButton';
 
@@ -15,7 +16,7 @@ export default function HomePage() {
     if (!loading && !user) router.replace('/login');
   }, [loading, user, router]);
 
-  if (loading || !user) return null;
+  if (loading || !user) return <PageLoading full />;
 
   return (
     <main className="min-h-screen min-h-dvh p-8">
