@@ -45,6 +45,23 @@ that explains *why*.
 - ☐ **MANUAL: grant the new repo "Manage Actions (Read)" on EACH private `@matthewdbaldwin/*` package BEFORE first CI**, or every `npm ci` 403s. → `feedback_new_private_package_ci_access`
 - ✓ `NODE_AUTH_TOKEN` on the CI **test** job step (not only deploy). → `feedback_private_gh_packages_dep_needs_token_in_ci_test_job`
 
+### Phase 2b — Publishing a NEW shared package  *(MANUAL, not part of a mint)*
+The Phase 2 grant above covers a new **repo** reading **existing** packages. The reverse case bites too: a private package published under the `matthewdbaldwin` user account grants Actions read to **only the repo that published it**. A new package inherits none of the grants `microport-contracts`/`microport-auth` picked up when they were created. → template#1, `reference_footgun_new_gh_package_needs_actions_access_grant`
+
+Do these **in this order**. Pushing the consumer first leaves it red until someone notices (`microport-approvals@0.1.0`, 2026-07-28, broke SalesPort dev):
+- ☐ **1. Publish** the package (`npm publish` from its repo, `publishConfig.registry` = `https://npm.pkg.github.com`).
+- ☐ **2. List every consumer repo** that will declare the dependency, including Docker/deploy-only consumers.
+- ☐ **3. Grant each consumer Actions read.** `https://github.com/users/matthewdbaldwin/packages/npm/<pkg>/settings` → **Manage Actions access** → **Add repository** → role **Read**. About a minute each. **UI only:** there is no API (`PUT`/`GET /user/packages/npm/<pkg>/repositories` → 404, and GraphQL doesn't support npm), so an agent can't do this step. Budget a human for it.
+- ☐ **4. Preflight before pushing:** open the settings page again and confirm every consumer from step 2 appears under Manage Actions access. The grant can't be checked by API, so this re-read is the only check before CI runs.
+- ☐ **5. Then push** each consumer's dependency commit (surgical lockfile change, never a bare `npm install`).
+
+**If a consumer's `npm ci` fails with E403**, the grant is missing. The token is fine:
+```
+npm error 403 Forbidden - GET https://npm.pkg.github.com/download/@matthewdbaldwin/<pkg>/...
+npm error 403 Permission permission_denied: read_package
+```
+This is misleading because other `@matthewdbaldwin/*` packages install fine **in the same job** with the same `NODE_AUTH_TOKEN`, so it looks like a token problem. Take `<pkg>` from the URL, do step 3 for the failing repo, and re-run. **Not the fix:** a `file:` dependency (Docker `npm ci` EUSAGE trap) or making the package public (these are private on purpose).
+
 ## Phase 3 — DB / Prisma / migrations  *(stamped)*
 - ✓ `db-migrate.js`: `migrate deploy` (not `db push`), `@prisma/client` **with PrismaPg adapter** (a bare `new PrismaClient()` crashes). → `feedback_prisma7_bare_client_trap`
 - ✓ Migrations are **NOT transactional** under adapter-pg → all DDL `IF NOT EXISTS`, idempotent; handle P3005. → `feedback_prisma7_non_transactional_migrations`, `feedback_db_migrate_pattern`
