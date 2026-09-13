@@ -20,7 +20,7 @@ import { useLocale, useMessages } from 'next-intl';
 import Link from 'next/link';
 import { Menu, ArrowLeft } from 'lucide-react';
 import { HelpCommandPalette } from '@matthewdbaldwin/microport-ui/help';
-import { Tooltip } from '@matthewdbaldwin/microport-ui';
+import { Tooltip, Spinner } from '@matthewdbaldwin/microport-ui';
 import { useAuth } from '@/contexts/AuthContext';
 import { canSeeHelpItem, lookupHelpItem, visibleSectionsFor } from '@/lib/help/sections';
 import { buildSearchDocs, type PopoverStore } from '@/lib/help/searchDocs';
@@ -57,7 +57,7 @@ export default function HelpLayout({ children }: { children: React.ReactNode }) 
   if (loading) {
     return (
       <div className="min-h-screen min-h-dvh flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+        <Spinner size="lg" color="accent" label="Loading…" />
       </div>
     );
   }
