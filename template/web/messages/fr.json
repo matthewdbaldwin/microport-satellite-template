@@ -44,9 +44,12 @@
     "send": "Envoyer le rapport",
     "sending": "Envoi…",
     "close": "Fermer",
-    "thanks": "Rapport de bug envoyé.",
     "screenshotLabel": "Capture d'écran (facultatif)",
     "screenshotHint": "Joignez une image ou collez-en une avec Ctrl/Cmd+V.",
+    "screenshotPrivacyWarning": "Tout ce qui est visible à l'écran sera joint — vérifiez d'abord l'absence de données personnelles ou patient.",
+    "screenshotAddTitle": "Ajouter une capture d'écran",
+    "screenshotDropActive": "Déposez pour joindre",
+    "screenshotMaxSize": "Jusqu'à 2 Mo après compression.",
     "screenshotChoose": "Choisir une capture",
     "screenshotReplace": "Remplacer la capture",
     "screenshotRemove": "Retirer la capture",
@@ -55,6 +58,7 @@
     "errorTitle": "Le titre est requis.",
     "errorDetail": "La description est requise.",
     "errorScreenshotTooLarge": "La capture doit faire 2 Mo ou moins.",
+    "errorScreenshotNotAnImage": "Ce fichier n'est pas une image.",
     "errorSend": "Échec de l'envoi. Veuillez réessayer."
   },
   "helpContent": {
