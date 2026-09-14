@@ -7,6 +7,7 @@
   "dbName": "serviceport",
   "targetDir": "../serviceport",
   "apiPort": 4008,
+  "alias": "svp",
 
   "_notes": {
     "appName": "Display name (PascalCase, shown in nav/login).",
@@ -14,6 +15,7 @@
     "primaryRole": "The role string this platform introduces. Must be added to microport-contracts roles.ts before launch (Phase 4).",
     "fkTable": "'users' (@@map snake-plural, like sp/op) OR 'User' (Prisma default, like rp/cp/ep). Pick one; all hand-written SQL must match. feedback_prisma_migration_fk_table_naming_per_repo.",
     "targetDir": "Where to write the new repo, relative to this template. Keep it a sibling of the other satellites.",
-    "apiPort": "API port (default 4008). The scaffold refuses a port another satellite already uses; add the new app to deploy-local's app table after minting."
+    "apiPort": "API port (default 4008). Not required to be fleet-unique — container-local, see the fleet.ts \"API PORTS ARE NOT UNIQUE\" note. Just sanity-checked as an integer.",
+    "alias": "Optional short id (like sp/op/rp). Defaults to appSlug if omitted. Checked against microport-infra/fleet.json for collisions with existing Apps, same as appSlug."
   }
 }
