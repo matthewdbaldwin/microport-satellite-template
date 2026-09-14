@@ -41,29 +41,57 @@ for (const k of required) if (!cfg[k]) die(`config.${k} is required`);
 if (!/^[a-z][a-z0-9-]*$/.test(cfg.appSlug)) die(`appSlug must be lower-kebab (got "${cfg.appSlug}")`);
 if (!['users', 'User'].includes(cfg.fkTable)) die(`fkTable must be "users" (@@map) or "User" — see feedback_prisma_migration_fk_table_naming_per_repo`);
 
-// ── API port: must not collide with a live satellite ────────────────────────
-// The web container reaches its API over localhost inside the ECS task, so a
-// borrowed port silently points the web build at the wrong app. The template
-// used to hardcode 4100, which is EngagePort's; finport minted with it.
+// ── Fleet Manifest — collision checks against every existing App ────────────
+// microport-infra/fleet.json is the one hand-edited list of every App in the
+// Fleet (vocabulary + WHY in microport-contracts/src/fleet.ts). Read as a
+// sibling checkout by convention — same as deploy-local (see
+// ~/memory/recipes/deploy-local.md) — overridable via FLEET_JSON. A missing or
+// unparsable manifest only warns: this scaffolder must still work in a
+// checkout where infra isn't cloned as a sibling.
 // TODO(W1.1): read fleet.json instead of this hardcoded copy of deploy-local's
-// app table (devbox-tooling bin/deploy-local, verified 2026-09-13).
-const FLEET_API_PORTS = {
-  4000: 'salesport',
-  4001: 'reviewport, clinicport',
-  4002: 'opsport',
-  4003: 'execport',
-  4005: 'finport',
-  4006: 'productport',
-  4007: 'hubport',
-  4100: 'engageport',
-};
+// app table (devbox-tooling bin/deploy-local, verified 2026-09-13). RESOLVED
+// below — but note the hardcoded table this replaced enforced apiPort
+// UNIQUENESS, which fleet.ts explicitly says is wrong (reviewport and
+// clinicport both listen on 4001 by design). That die()-on-collision check is
+// removed, not ported forward; see the apiPort section below.
+const FLEET_JSON = process.env.FLEET_JSON || path.join(HERE, '..', 'microport-infra', 'fleet.json');
+let fleet = null;
+try {
+  const parsed = JSON.parse(await readFile(FLEET_JSON, 'utf8'));
+  if (parsed && Array.isArray(parsed.apps)) {
+    fleet = parsed;
+  } else {
+    console.warn(`⚠ Fleet Manifest at ${FLEET_JSON} has no "apps" array. Skipping fleet collision checks.`);
+  }
+} catch (err) {
+  console.warn(`⚠ Could not read Fleet Manifest at ${FLEET_JSON} (${err.code || err.message}). Skipping fleet collision checks — this is fine if microport-infra isn't cloned as a sibling.`);
+}
+
+const alias = cfg.alias || cfg.appSlug;
+
+if (fleet) {
+  const slugHit = fleet.apps.find((a) => a.id === cfg.appSlug);
+  if (slugHit) die(`appSlug "${cfg.appSlug}" collides with existing App "${slugHit.label}" (id: ${slugHit.id}) in fleet.json. Pick a different appSlug.`);
+
+  const aliasHit = fleet.apps.find((a) => a.alias === alias);
+  if (aliasHit) die(`alias "${alias}" collides with existing App "${aliasHit.label}" (id: ${aliasHit.id}) in fleet.json. Pick a different alias.`);
+
+  const targetBase = path.basename(path.resolve(cfg.targetDir));
+  const repoDirHit = fleet.apps.find((a) => a.repoDir === targetBase);
+  if (repoDirHit) die(`targetDir "${cfg.targetDir}" (basename "${targetBase}") collides with existing App "${repoDirHit.label}" (id: ${repoDirHit.id})'s repoDir in fleet.json. Pick a different targetDir.`);
+
+  const portsInUse = fleet.apps.map((a) => a.apiPort).sort((a, b) => a - b);
+  console.log(`Existing API ports in use: ${portsInUse.join(', ')} — pick one that doesn't matter (ports aren't required unique) or a fresh one.`);
+}
+
+// ── API port — no uniqueness requirement ─────────────────────────────────────
+// Ports are container-local, not fleet-unique (see the "API PORTS ARE NOT
+// UNIQUE" note in microport-contracts/src/fleet.ts) — do not add a uniqueness
+// die() here. Only sanity-check the shape.
 const DEFAULT_API_PORT = 4008;
 const apiPort = cfg.apiPort ?? DEFAULT_API_PORT;
 if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535) {
   die(`apiPort must be an integer 1024-65535 (got ${JSON.stringify(cfg.apiPort)})`);
-}
-if (FLEET_API_PORTS[apiPort]) {
-  die(`apiPort ${apiPort} is already used by ${FLEET_API_PORTS[apiPort]}. Pick a free port (taken: ${Object.keys(FLEET_API_PORTS).join(', ')}).`);
 }
 
 const TOKENS = {
@@ -128,6 +156,11 @@ NEXT — manual steps the generator can't do (full detail in RUNBOOK.md):
   Phase 4  Add "${cfg.appSlug}" + role "${cfg.primaryRole}" to microport-contracts
            roles.ts ROLE_CONTRACTS (ssoGrantable + mapRole) and publish, or every
            hire 403s / unknown_role at SSO login. (prd_microport_contracts)
+           Also add "${cfg.appSlug}" to microport-contracts src/fleet.ts
+           FLEET_MANIFEST (id, label, tagline, repoDir, alias: "${alias}",
+           apiPort: ${apiPort}, webPort, stage: 'dev', flags) and publish —
+           it's the single source Terraform, deploy-local, and this
+           scaffolder's own collision check (above) all read against.
   Phase 5  Register canonical webhook channels WEBHOOK_SECRET_<FROM>_<TO> and set
            the secret on BOTH task defs' ${cfg.appSlug}-api container.
   Phase 7  AWS: ECR repo, ECS service in microport-dev then microport (bare-named),
