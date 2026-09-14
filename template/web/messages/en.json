@@ -44,9 +44,12 @@
     "send": "Submit report",
     "sending": "Submitting…",
     "close": "Close",
-    "thanks": "Bug report submitted.",
     "screenshotLabel": "Screenshot (optional)",
     "screenshotHint": "Attach an image, or paste one with Ctrl/Cmd+V.",
+    "screenshotPrivacyWarning": "Anything visible on screen will be attached — check for personal or patient data first.",
+    "screenshotAddTitle": "Add a screenshot",
+    "screenshotDropActive": "Drop to attach",
+    "screenshotMaxSize": "Up to 2 MB after compression.",
     "screenshotChoose": "Choose screenshot",
     "screenshotReplace": "Replace screenshot",
     "screenshotRemove": "Remove screenshot",
@@ -55,6 +58,7 @@
     "errorTitle": "A title is required.",
     "errorDetail": "A description is required.",
     "errorScreenshotTooLarge": "Screenshot must be 2 MB or smaller.",
+    "errorScreenshotNotAnImage": "That file isn't an image.",
     "errorSend": "Could not send your report. Please try again."
   },
   "helpContent": {
