@@ -13,6 +13,6 @@
     "selftest": "node scaffold.mjs scaffold.config.example.json --dry"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   }
 }
