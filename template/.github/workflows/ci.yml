@@ -109,3 +109,32 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Help Library content-coverage gate (scripts/help-audit.js). Read-only
+  # static analyzer — reports blockers/warnings/nits across page/HelpButton
+  # coverage and the helpContent i18n schema. Plain Node (fs/path only, no
+  # deps) so no `npm ci` is needed, matching opsport/EngagePort's job shape.
+  # Confirmed 0/0/0 against the scaffold's own content as of this task.
+  help-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm run help:audit
+
+  # Help Library media gate (scripts/help-media-audit.js). Pairs every
+  # `kind: 'media'` block in help content with a real file under
+  # web/public/help-media/ — a renamed clip or bad path otherwise only fails
+  # in the browser. Deliberately its own script/job, not a check inside
+  # help-audit.js — see that script's own header for why. Confirmed 0/0/0
+  # against the scaffold's own content as of this task.
+  help-media:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm run help:media:audit
