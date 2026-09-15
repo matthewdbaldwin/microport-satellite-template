@@ -20,6 +20,13 @@ const csrfGuard = createCsrfGuard({
     // code itself, not the session cookie (there isn't one yet) — it needs no
     // X-Requested-With header, or the CSRF guard 403s a legitimate login.
     '/api/auth/sso/exchange',
+    // HubPort fleet-union census pull — server-to-server, HMAC-only (no
+    // cookie session, no X-Requested-With header to check). Matches
+    // finport/productport's own bootstrapPaths entry for the same route.
+    '/api/internal/user-census',
+    // HubPort fleet conformance sweep pull (hubport#84) — server-to-server,
+    // HMAC-only (no cookie session, no X-Requested-With header to check).
+    '/api/internal/digest-grants',
   ],
   allowedOrigins: () => {
     const list = (process.env.WEB_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);

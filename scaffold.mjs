@@ -161,6 +161,10 @@ NEXT — manual steps the generator can't do (full detail in RUNBOOK.md):
            apiPort: ${apiPort}, webPort, stage: 'dev', flags) and publish —
            it's the single source Terraform, deploy-local, and this
            scaffolder's own collision check (above) all read against.
+           Also add "${cfg.appSlug}" to microport-contracts src/digestAdapters.ts
+           GRANT_ADAPTERS and publish, or POST /api/internal/digest-grants
+           500s instead of returning digests (hubport#84's fleet conformance
+           sweep can't read this satellite until then).
   Phase 5  Register canonical webhook channels WEBHOOK_SECRET_<FROM>_<TO> and set
            the secret on BOTH task defs' ${cfg.appSlug}-api container.
   Phase 7  AWS: ECR repo, ECS service in microport-dev then microport (bare-named),

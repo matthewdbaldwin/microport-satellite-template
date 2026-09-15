@@ -18,7 +18,18 @@ function ssl() {
   return { ca: fs.readFileSync(caPath, 'utf8') };
 }
 
-const adapter = new PrismaPg({ connectionString: url, ssl: ssl(), max: 5 }); // pool cap 5 — rds_connection_pool_exhaustion
+// pool cap 5 — rds_connection_pool_exhaustion.
+// statement_timeout is the server-side kill switch that makes that small pool
+// safe: with only 5 connections, one runaway query would otherwise hold a
+// connection indefinitely and starve 20% of capacity. Postgres aborts any
+// single statement past this. 30s default; DB_STATEMENT_TIMEOUT (ms) overrides.
+// Matches salesport/opsport/clinicport/execport/reviewport.
+const adapter = new PrismaPg({
+  connectionString: url,
+  ssl: ssl(),
+  max: 5,
+  statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT || '30000', 10),
+});
 const db = new PrismaClient({ adapter });
 
 module.exports = db;

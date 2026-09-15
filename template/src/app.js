@@ -6,6 +6,7 @@ const helmet       = require('helmet');
 const pinoHttp     = require('pino-http');
 const cookieParser = require('cookie-parser');
 const logger       = require('./lib/logger');
+const logRedact    = require('./lib/logRedact');
 const { errorHandler, correlationReqId } = require('@matthewdbaldwin/microport-auth');
 const { csrfGuard } = require('./middleware/csrf');
 const { requireAuth, withFreshAccessToken } = require('./middleware/auth');
@@ -39,7 +40,14 @@ if (corsOrigins.length === 0 && process.env.NODE_ENV === 'production') {
 }
 app.use(cors({ origin: corsOrigins.length ? corsOrigins : true, credentials: true }));
 
-app.use(pinoHttp({ logger, genReqId: correlationReqId }));
+app.use(pinoHttp({
+  logger,
+  // `serializers` carries the header allowlist and MUST be passed here, not to
+  // pino() — pino-http overrides the base logger's serializers, so wiring it on
+  // the logger looks correct and is silently inert. See lib/logRedact.js.
+  serializers: logRedact.serializers,
+  genReqId: correlationReqId,
+}));
 
 // Capture the raw body so webhook receivers can verify the HMAC over the exact
 // bytes. JSON parsing still runs for everyone else.
@@ -61,6 +69,12 @@ const health = (_req, res) => res.json({
 });
 app.get('/health', health);
 app.get('/api/health', health);
+
+// Tight cap on the SSO exchange — this scaffold's only pre-auth attempt
+// surface (pure-SSO). Mounted ahead of the CSRF guard like productport does;
+// the route is bootstrap-pathed anyway.
+const { authLimiter } = require('./middleware/limiters');
+app.post('/api/auth/sso/exchange', authLimiter);
 
 // CSRF guard on /api, with BOOTSTRAP_PATHS bypassing signature-authed ingress
 // (webhooks/lifecycle verify their own HMAC). feedback_csrf_bootstrap_allowlist_drift.
@@ -84,6 +98,18 @@ app.use('/api/sample', requireAuth, require('./routes/sample'));
 // Outbound bug reports forward SYNCHRONOUSLY to the SalesPort central queue
 // (signed, fleet pattern). bug-report-fanout.
 app.use('/api/bug-reports', require('./routes/bugReports'));
+
+// HubPort fleet-union census pull — server-to-server, HMAC-only (no cookie
+// session), guarded internally by its own censusGuard (fails closed until
+// HUBPORT_CENSUS_SECRET is set on this task def). Mounted ahead of that
+// provisioning is safe; see the route file's header comment.
+app.use('/api/internal/user-census', require('./routes/userCensus'));
+
+// HubPort fleet conformance sweep pull (hubport#84 §9-§11) — server-to-server,
+// HMAC-only (no cookie session), guarded internally by its own digestGuard
+// (fails closed until HUBPORT_DIGEST_SECRET is set on this task def). Same
+// mount-ordering rationale as the census route above.
+app.use('/api/internal/digest-grants', require('./routes/digestGrants'));
 
 // Error handler LAST — 5xx → generic body (no leak), 4xx surface their message,
 // err.status/.code honored. From microport-auth.
